@@ -244,3 +244,31 @@ git push origin main
 - Don't treat G1-4 (330 sequences > 512 tokens) as a blocker — it is a **known accepted warning** grandfathered in by DEC-032. It affects all variants equally and does not bias the comparison. The path to H6 is not blocked by G1-4. See `docs/decisions/LOG.md` ~line 1760.
 - Don't run `python/manage.py` (or `python3 manage.py`) without specifying the ML Python binary explicitly — the system `python3` (`/usr/bin/python3`, 3.9.6) lacks ML packages and doesn't support `str | Path` union syntax (fails at `manifest.py:98`). Always invoke as `/usr/local/bin/python3 python/manage.py ...`. See Issue 9 in `docs/experiments/KNOWN_ISSUES.md`.
 - Don't use old checkpoint names `variant_A_v1_4_0`, `variant_A_v2_full`, or `variant_B_small` for evaluation — these are dirty (trained on the leaky 3491/388 split). Use `variant_A_v3_2ep` and `variant_B_small_clean` (both 3375/376, 2ep) instead. The dirty checkpoints remain on disk but must not be used.
+
+### GitHub token lifecycle (verified 2026-09-27, all surfaces)
+
+`GITHUB_TOKEN` is short-lived and has no agent-side refresh step: the platform
+re-injects the current value into each command whose text contains the literal
+string `GITHUB_TOKEN`. A fresh value arrives by referencing it again in a new
+command, not by retrying.
+
+- Do not trust an early `export`: a later command that names `GITHUB_TOKEN` gets
+  the platform's current value and overwrites whatever the shell held.
+- A long-running process (server, supervisor) captures the token at start. After
+  a rotation it 401s on every call until restarted.
+- `git push` with the token embedded in the `origin` URL is the same trap: after
+  a rotation it prompts for a password and reads as a hang. Re-point the remote
+  and use `GIT_TERMINAL_PROMPT=0`.
+
+401 bodies: `Bad credentials` = rotated (transient - reference `$GITHUB_TOKEN`
+again in a new command); `Requires authentication` = no token sent; `Resource not
+accessible by integration` = App permission gap (permanent, stop).
+
+`gh` prefers `GH_TOKEN` over `GITHUB_TOKEN`. Do not `unset` it; pin it so `gh`
+cannot fall back to a stale or absent one:
+
+```bash
+export GH_TOKEN=$GITHUB_TOKEN && gh api user -q .login
+```
+
+Full mechanism and evidence: `portfolio-ops/ACCESS_AND_IDENTITIES.md`.
