@@ -32,9 +32,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "python"))
 RUNS_DIR = REPO / "runs"
 DATASETS_DIR = REPO / "datasets"
 CORPUS_DIR = REPO / "Corpus"
+
+from preflight_gate import enforce_preflight  # noqa: E402
 
 
 def resolve_repo_path(value, *, kind: str) -> Path:
@@ -263,6 +266,11 @@ EXPERIMENTS = {
         "lr": 1e-3,
     },
 }
+
+# Alias commands that launch training, and so require the preflight artifact
+# (#79). extract/eval/build-pairs are analysis passes, not H-test launches.
+TRAIN_ALIAS_COMMANDS = {"train", "train-h9", "train-contrastive",
+                        "train-h5-proj"}
 
 # Audit preconditions: which audit items must be resolved before an alias
 # can run. Ties the alias system to the audit — no experiment that depends
@@ -846,6 +854,7 @@ def cmd_alias(args):
     alias_config = EXPERIMENTS[alias_name]
     skip_audit = getattr(args, "skip_audit_check", False)
     skip_provenance = getattr(args, "skip_provenance_check", False)
+    skip_preflight = getattr(args, "skip_preflight_check", False)
 
     # Guard 1: audit preconditions
     print("=" * 60)
@@ -855,6 +864,15 @@ def cmd_alias(args):
 
     if not check_audit_preconditions(alias_name, allow_skip=skip_audit):
         return 1
+
+    # Guard 1b: preflight pre-condition (#79) — training/H aliases only, since
+    # the artifact gates a *training* launch, not an extract/eval pass.
+    if alias_config["command"] in TRAIN_ALIAS_COMMANDS:
+        if skip_preflight:
+            print("WARNING: --skip-preflight-check given — preflight pre-condition NOT enforced.")
+            print()
+        elif not enforce_preflight():
+            return 1
 
     # Guard 2: corpus provenance (for train aliases)
     if alias_config["command"] == "train":
@@ -1380,6 +1398,8 @@ def main():
                          help="Override audit precondition check (NOT RECOMMENDED)")
     p_alias.add_argument("--skip-provenance-check", action="store_true",
                          help="Override corpus provenance check (NOT RECOMMENDED)")
+    p_alias.add_argument("--skip-preflight-check", action="store_true",
+                         help="Override the status/preflight.json pre-condition (NOT RECOMMENDED)")
 
     # Direct alias shortcuts: any alias name becomes a subcommand
     for alias_name in EXPERIMENTS:
@@ -1387,6 +1407,7 @@ def main():
         p.add_argument("rest", nargs="*", help="Extra args (variants, mode)")
         p.add_argument("--skip-audit-check", action="store_true")
         p.add_argument("--skip-provenance-check", action="store_true")
+        p.add_argument("--skip-preflight-check", action="store_true")
 
     # Phase 3: watch
     p_watch = sub.add_parser("watch", help="Generate auto-refreshing HTML dashboard")

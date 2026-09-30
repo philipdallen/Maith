@@ -39,6 +39,8 @@ sys.path.insert(0, str(REPO / "python"))
 
 from manifest import write_results_manifest, write_checkpoint_manifest, \
     write_embeddings_manifest, expected_source_for_variant
+from preflight_gate import enforce_preflight, DEFAULT_PREFLIGHT_PATH, \
+    DEFAULT_CORPUS_PATH
 
 REGISTRY_PATH = REPO / "docs" / "experiments" / "RUN_REGISTRY.md"
 RUNS_DIR = REPO / "runs"
@@ -141,6 +143,13 @@ def cmd_train(args):
 
     if run_dir.exists():
         print(f"ERROR: run dir {run_dir} already exists — refusing to overwrite.")
+        return 1
+
+    # Step 0: enforce the preflight pre-condition (#79). Done before the run dir
+    # is created, so a stale/missing artifact cannot leave a half-started run.
+    if getattr(args, "skip_preflight_check", False):
+        print("WARNING: --skip-preflight-check given — preflight pre-condition NOT enforced.")
+    elif not enforce_preflight(DEFAULT_PREFLIGHT_PATH, DEFAULT_CORPUS_PATH):
         return 1
 
     # Create run dir and log file
@@ -486,6 +495,8 @@ def main():
     p_train.add_argument("--lr", default=None)
     p_train.add_argument("--base-script", default="train_v2_resume.py")
     p_train.add_argument("--config-tag", default=None)
+    p_train.add_argument("--skip-preflight-check", action="store_true",
+                         help="Override the status/preflight.json pre-condition (NOT RECOMMENDED)")
 
     # extract
     p_extract = sub.add_parser("extract", help="Launch embedding extraction")
