@@ -16,7 +16,7 @@ acting on any step below, note what was verified on 2026-09-15:
 
 | Claim in this document | Verified reality |
 |---|---|
-| "Structural similarity search (subgraph isomorphism / graph edit distance / structural fingerprinting) — originally built as a proof-candidate generator (DIRECTION.md). Reused here..." | **Does not exist.** `Maith/GraphEquivalence.lean` is exact structural/normalized/rewrite *equality* (a test helper, referenced only by `Init.lean`), not a similarity search. There is no subgraph-isomorphism, graph-edit-distance, or fingerprinting code anywhere in the repo. **This must be built**, so the "nothing here is being rebuilt" framing is wrong for this item. |
+| "Structural similarity search (subgraph isomorphism / graph edit distance / structural fingerprinting) — originally built as a proof-candidate generator (DIRECTION.md). Reused here..." | **Built — this row was stale and is corrected here (2026-09-30).** `python/structural_similarity.py` landed in commit `8514331` (`feat(#28): structural similarity over IR graphs (phase 1)`); issue **#28 is closed** (2026-09-16). Phase 1 supplies structural-fingerprint similarity over IR graphs for candidate discovery (invariant to declaration name, bound-scope strings, positional indices, ordering and polarity; sensitive to row kinds, relation direction/operator, attribute keys/values, operation identity). Still distinct from `Maith/GraphEquivalence.lean`, which is exact *equality* for testing. Phase 2 (candidate dedup against elaborated φ terms) stays open. |
 | "HOF application support / projection expression parsing — still the highest-priority extraction gaps... remains the actual blocking dependency." | **Implemented and passing.** `Maith/MetaExtractor.lean` handles variable-headed application (`hof`) and `.proj`; `Tests/CorpusPipelineTests.lean::testHOFApplicationExtracts` / `testProjectionExtracts` pass. (The inline code comment in `MetaExtractor.lean` saying they are "NOT covered" is itself stale — a branch immediately below covers them.) This is **not** the blocking dependency; see the actual one below. |
 | "complexitylib / descriptive-complexity (external, once toolchain reconciliation in PleaNP issue #70 lands) — source of the circuit complexity benchmark corpus." | **Superseded.** PleaNP #70 closed 2026-09-13 **rejecting** the `complexitylib` import (it pins `v4.34.0-rc2` + `cslib` vs PleaNP's stable `v4.31.0`), and chose a local `PleaNP.Circuits`. That module now exists and is materially further along than "stub" (five type-checking modules on PleaNP `dev`: `Basic`, `AC0`, `Monotone`, `MonotoneApprox`, `MustRefute`), though it is concentrated in one area. See `BENCHMARK_CORPUS_PLAN.md` §Dependencies. |
 | "the toy-model training loop and harness (moved to `archive/`, not deleted)" | **No `archive/` directory exists.** The toy-model scripts (`train.py`, `train_h5_*`, `train_h9_*`, `train_v2_resume.py`) are still live and referenced by `python/manage.py` and `python/launch_run.py`. The shelving is a *research-direction* decision, not a filesystem move. |
@@ -56,12 +56,12 @@ never the stated target of a search step. See "Non-goals" below.
   everything below; no changes needed to reuse it for a narrower domain
   (circuit complexity declarations instead of arbitrary Mathlib).
 - **Structural similarity search** (subgraph isomorphism / graph edit distance /
-  structural fingerprinting over the IR graph) — **not present; must be built.**
-  This is the literal search mechanism over candidate target structures and
-  candidate φ mappings. The original text described it as already existing as a
-  proof-candidate generator; it does not (see the reconciliation note above).
-  Note the distinction from `Maith/GraphEquivalence.lean`, which is exact
-  *equality* for testing, not similarity ranking.
+  structural fingerprinting over the IR graph) — **built** (phase 1;
+  `python/structural_similarity.py`, issue #28 closed 2026-09-16). This is the
+  literal search mechanism over candidate target structures and candidate φ
+  mappings. Note the distinction from `Maith/GraphEquivalence.lean`, which is
+  exact *equality* for testing, not similarity ranking. Phase 2 (dedup against
+  elaborated φ terms) remains open and is folded into #28's scope.
 - **HOF application support / projection expression parsing** — **done** (not a
   gap). `MetaExtractor.lean` covers both; `Tests/CorpusPipelineTests.lean`
   passes `testHOFApplicationExtracts` / `testProjectionExtracts`. The load-bearing
@@ -166,7 +166,7 @@ flowchart TD
     subgraph search["Proposal (Maith)"]
       L["Candidate ledger<br/>axiom-rewrite/candidates.jsonl<br/>ISSUE #27"]
       CM["Coverage map<br/>ISSUE #27"]
-      SS["Structural similarity search<br/>ISSUE #28 (does not exist yet)"]
+      SS["Structural similarity search<br/>ISSUE #28 (built, phase 1)"]
     end
 
     subgraph gates["Validation — 5 gates, in order"]
@@ -200,8 +200,10 @@ training loop is not in this diagram — it is shelved (DEC-036).
 
 Three things the diagram makes visible that the prose buries:
 
-1. **#28 (similarity search) is a real build, not reuse.** The original doc claimed
-   it already existed as a proof-candidate generator; it does not.
+1. **#28 (similarity search) landed as phase 1.** The original doc claimed it
+   already existed as a proof-candidate generator; it did not, and it has since
+   been built (`python/structural_similarity.py`, #28 closed 2026-09-16).
+   Phase 2 (dedup against elaborated φ terms) remains open.
 2. **The corpus has two halves with different status.** Part 2 (targets) is
    unblocked; Part 1 (conservativity) is blocked on *breadth*, not existence.
 3. **Gate 4 is downstream of gate 3 by design** — it can never rescue a candidate
@@ -447,9 +449,10 @@ and the dependency in `BENCHMARK_CORPUS_PLAN.md` §Dependencies.
    (issue #27; `axiom-rewrite/`). Append-only ledger with the two §"Validation
    pipeline" gate rules enforced on append, plus a derived coverage map that
    surfaces zero-attempt declarations first.
-3. **Build the structural similarity search.** This was claimed as existing
-   infrastructure and is not — it is the search mechanism itself, so it is real
-   work, not reuse.
+3. **Structural similarity search** — ✅ **done** (phase 1; `python/structural_similarity.py`,
+   issue #28 closed 2026-09-16). This was claimed as existing infrastructure and
+   was not, so it was real work; phase 1 now supplies the search mechanism.
+   Phase 2 (candidate dedup against elaborated φ terms) remains open.
 4. **Implement the shared metaprogramming harness** (spec-in, gates-out). The
    expensive piece; genuinely worth deferring until steps 1–3 land, since it
    consumes their outputs.
@@ -464,7 +467,7 @@ filed as `status:available` tasks with explicit `Blocked by` lineages:
 |---|---|---|
 | 1. Transfer-target list (corpus Part 2) | #26 | steps 1-3 unblocked; formalization blocked on **PleaNP #102** |
 | 2. Candidate ledger + coverage map | #27 | ✅ **done** |
-| 3. Structural similarity search | #28 | **claimable** (phase 1); phase 2 (candidate dedup) blocked |
+| 3. Structural similarity search | #28 | ✅ **done** (phase 1); phase 2 (candidate dedup) open |
 | 4. Shared metaprogramming harness | #29 | #28 |
 | 5. First candidate batch | #30 | #26, #27, #29 |
 | —. Conservativity corpus (corpus Part 1) | #31 | **blocked** on upstream `PleaNP.Circuits` |
