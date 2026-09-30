@@ -1139,11 +1139,95 @@ def cmd_gen_html(args):
 # Phase 4: Quality gates
 # ---------------------------------------------------------------------------
 
+PREFLIGHT_PATH = REPO / "status" / "preflight.json"
+
+
+def _gate_commands(station, *, ds, runs, corpus, skip_roundtrip):
+    """Build the (key, name, cmd) triples for a gate station.
+
+    Shared by `gate` and `preflight` so the two cannot drift apart — the artifact
+    must record exactly the gates the operator runs.
+    """
+    py = sys.executable
+    repo = str(REPO)
+    gates = []
+    if station in ("ir", "all"):
+        cmd = [py, f"{repo}/python/check_ir_build.py", "--corpus", corpus]
+        if skip_roundtrip:
+            cmd.append("--skip-roundtrip")
+        gates.append(("G1_ir_build", "Gate 1 — IR Build", cmd))
+    if station in ("corpus", "all"):
+        gates.append(("G2_corpus", "Gate 2 — Corpus Acceptance",
+                      [py, f"{repo}/python/check_corpus.py", "--corpus", corpus]))
+    if station in ("dataset", "all"):
+        gates.append(("G3_dataset", "Gate 3 — Dataset Quality",
+                      [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs]))
+    if station in ("train", "all"):
+        gates.append(("G4_train", "Gate 4 — Training Output",
+                      [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs, "--check", "ckpt"]))
+    if station in ("eval", "all"):
+        # Gate 5 uses the same invariant checker (Invariant 5 = comparison validity)
+        gates.append(("G5_eval", "Gate 5 — Evaluation Integrity",
+                      [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs]))
+    return gates
+
+
+def _sha256_file(path: Path, max_bytes: int = 256 * 1024 * 1024) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    read = 0
+    with open(path, "rb") as f:
+        while read < max_bytes:
+            chunk = f.read(1 << 20)
+            if not chunk:
+                break
+            h.update(chunk)
+            read += len(chunk)
+    return f"sha256:{h.hexdigest()}"
+
+
+def _corpus_provenance(corpus_path: Path, manifest_path: Path = None) -> dict:
+    """Hash the corpus on disk and compare it to corpus_manifest.json.
+
+    The comparison is the point: a hash recorded but never re-read is how a stale
+    artifact passes for a fresh one (the class G2-6 guards against).
+    """
+    manifest = manifest_path or (CORPUS_DIR / "corpus_manifest.json")
+    recorded = None
+    if manifest.exists():
+        try:
+            recorded = json.loads(manifest.read_text()).get("content_hash")
+        except (json.JSONDecodeError, OSError):
+            recorded = None
+    actual = _sha256_file(corpus_path) if corpus_path.exists() else None
+    return {
+        "path": str(corpus_path),
+        "exists": corpus_path.exists(),
+        "content_hash": actual,
+        "manifest_content_hash": recorded,
+        "hash_matches": bool(actual and recorded and actual == recorded),
+    }
+
+
+def _corpus_versions() -> dict:
+    """IR/encoder version + Mathlib commit from the corpus build's stats.json."""
+    out = {"ir_version": None, "encoder_version": None, "mathlib_commit": None}
+    stats = CORPUS_DIR / "stats.json"
+    if not stats.exists():
+        return out
+    try:
+        data = json.loads(stats.read_text())
+    except (json.JSONDecodeError, OSError):
+        return out
+    out["ir_version"] = data.get("irVersion")
+    out["encoder_version"] = data.get("encoderVersion")
+    out["mathlib_commit"] = data.get("mathlibCommitHash")
+    return out
+
+
 def cmd_gate(args):
     """Run a pipeline quality gate (see PIPELINE_QUALITY_GATES.md)."""
     station = args.station
-    py = sys.executable
-    repo = str(REPO)
     # Resolve explicitly (issue #24). Defaults are repo-anchored; a user path is
     # anchored at REPO too, and must exist. Resolve BEFORE building any gate so a
     # bad path fails before a single check runs.
@@ -1162,39 +1246,16 @@ def cmd_gate(args):
     print(f"  {describe_dataset_dir(ds_path)}")
     print(f"  runs={runs_path}")
 
-    gates = []
-
-    if station in ("ir", "all"):
-        corpus = args.corpus or str(CORPUS_DIR / "corpus.per_operator.jsonl")
-        cmd = [py, f"{repo}/python/check_ir_build.py", "--corpus", corpus]
-        if args.skip_roundtrip:
-            cmd.append("--skip-roundtrip")
-        gates.append(("Gate 1 — IR Build", cmd))
-
-    if station in ("corpus", "all"):
-        corpus = args.corpus or str(CORPUS_DIR / "corpus.per_operator.jsonl")
-        cmd = [py, f"{repo}/python/check_corpus.py", "--corpus", corpus]
-        gates.append(("Gate 2 — Corpus Acceptance", cmd))
-
-    if station in ("dataset", "all"):
-        cmd = [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs]
-        gates.append(("Gate 3 — Dataset Quality", cmd))
-
-    if station in ("train", "all"):
-        cmd = [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs, "--check", "ckpt"]
-        gates.append(("Gate 4 — Training Output", cmd))
-
-    if station in ("eval", "all"):
-        # Gate 5 uses the same invariant checker (Invariant 5 = comparison validity)
-        cmd = [py, f"{repo}/python/check_invariants.py", "--datasets", ds, "--runs", runs]
-        gates.append(("Gate 5 — Evaluation Integrity", cmd))
+    gates = _gate_commands(station, ds=ds, runs=runs,
+                           corpus=args.corpus or str(CORPUS_DIR / "corpus.per_operator.jsonl"),
+                           skip_roundtrip=args.skip_roundtrip)
 
     if not gates:
         print(f"Unknown gate station: {station}")
         return 1
 
     all_pass = True
-    for name, cmd in gates:
+    for _key, name, cmd in gates:
         print(f"\n{'='*60}")
         print(name)
         print(f"{'='*60}")
@@ -1209,6 +1270,82 @@ def cmd_gate(args):
         print("ONE OR MORE GATES FAILED — do not proceed to experiments.")
     print(f"{'='*60}")
     return 0 if all_pass else 1
+
+
+def cmd_preflight(args):
+    """Write the machine-readable gate-status artifact status/preflight.json.
+
+    The pre-condition for running an H-test ("G1–G5 and S1/S2 must pass") was
+    prose-only in PIPELINE_QUALITY_GATES.md and HYPOTHESIS_GRID.md, so nothing
+    stopped a test running before it held. This records the pre-condition as an
+    artifact a launch path can check, together with the corpus hash and IR
+    version it was true for — so a stale artifact is detectable rather than
+    mistaken for a pass. See issue #78 (split from #76).
+    """
+    try:
+        ds_path = resolve_repo_path(args.datasets or DATASETS_DIR, kind="datasets")
+        runs_path = resolve_repo_path(args.runs or RUNS_DIR, kind="runs")
+    except (FileNotFoundError, NotADirectoryError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    ds, runs = str(ds_path), str(runs_path)
+    corpus_path = Path(args.corpus) if args.corpus else (CORPUS_DIR / "corpus.per_operator.jsonl")
+
+    print(f"\n{'='*60}")
+    print("PREFLIGHT")
+    print(f"{'='*60}")
+    print(f"  {describe_dataset_dir(ds_path)}")
+    print(f"  corpus={corpus_path}")
+
+    gate_results = {}
+    for key, name, cmd in _gate_commands("all", ds=ds, runs=runs,
+                                         corpus=str(corpus_path),
+                                         skip_roundtrip=args.skip_roundtrip):
+        print(f"\n--- {name} ---")
+        rc = subprocess.run(cmd).returncode
+        gate_results[key] = {"name": name, "returncode": rc,
+                             "status": "pass" if rc == 0 else "fail"}
+
+    provenance = _corpus_provenance(corpus_path)
+    versions = _corpus_versions()
+    sanity = {
+        "S1": {"status": args.s1,
+               "note": "linear-probe sanity (H1): see docs/experiments/HYPOTHESIS_GRID.md"},
+        "S2": {"status": args.s2,
+               "note": "duplicate-embedding retrieval sanity (Recall@1=1.0): see docs/experiments/HYPOTHESIS_GRID.md"},
+    }
+    gates_all_pass = all(g["status"] == "pass" for g in gate_results.values())
+    sanity_all_pass = all(s["status"] == "pass" for s in sanity.values())
+    ready = bool(gates_all_pass and provenance["hash_matches"] and sanity_all_pass)
+
+    artifact = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_by": "manage.py preflight",
+        "ready": ready,
+        "gates_all_pass": gates_all_pass,
+        "sanity_all_pass": sanity_all_pass,
+        # Flat keys named by the issue's DoD; `corpus`/`versions` carry the detail.
+        "corpus_hash": provenance["content_hash"],
+        "ir_version": versions["ir_version"],
+        "corpus": provenance,
+        "versions": versions,
+        "gates": gate_results,
+        "sanity": sanity,
+        "note": ("ready=true means G1-G5 all passed, the corpus on disk matches "
+                 "corpus_manifest.json, and S1/S2 were recorded as pass. Consumers "
+                 "must also compare corpus_hash (and versions) against the tree they "
+                 "are about to launch; a mismatch means this artifact is stale and "
+                 "the pre-condition does not hold."),
+    }
+
+    PREFLIGHT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PREFLIGHT_PATH.write_text(json.dumps(artifact, indent=2) + "\n")
+    print(f"\n{'='*60}")
+    print(f"preflight artifact: {PREFLIGHT_PATH}")
+    print(f"  ready={ready}  gates_all_pass={gates_all_pass}  "
+          f"hash_matches={provenance['hash_matches']}  sanity_all_pass={sanity_all_pass}")
+    print(f"{'='*60}")
+    return 0 if ready else 1
 
 
 # ---------------------------------------------------------------------------
@@ -1271,6 +1408,18 @@ def main():
     p_gate.add_argument("--skip-roundtrip", action="store_true",
                         help="Skip G1-1 round-trip (use when Lean not available)")
 
+    p_pre = sub.add_parser("preflight",
+                           help="Run G1-G5 + record status/preflight.json (the H-test pre-condition)")
+    p_pre.add_argument("--datasets", default=None, help="Datasets directory")
+    p_pre.add_argument("--runs", default=None, help="Runs directory")
+    p_pre.add_argument("--corpus", default=None, help="Corpus JSONL path")
+    p_pre.add_argument("--skip-roundtrip", action="store_true",
+                       help="Skip G1-1 round-trip (use when Lean not available)")
+    p_pre.add_argument("--s1", choices=["pass", "fail", "unknown"], default="unknown",
+                       help="Recorded status of sanity check S1 (linear probe)")
+    p_pre.add_argument("--s2", choices=["pass", "fail", "unknown"], default="unknown",
+                       help="Recorded status of sanity check S2 (duplicate-embedding retrieval)")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -1301,6 +1450,8 @@ def main():
         return cmd_gen_html(args)
     elif args.command == "gate":
         return cmd_gate(args)
+    elif args.command == "preflight":
+        return cmd_preflight(args)
     else:
         parser.print_help()
         return 1

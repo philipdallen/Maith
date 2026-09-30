@@ -112,3 +112,7 @@ fix_bsmall3.py
 # The status-branch worktree created by the sweep/auditor workflows.
 # It is a second checkout of this same repo, not part of main.
 .status-branch/
+
+# Runtime gate-status artifact written by `manage.py preflight`. It records the
+# corpus hash of the tree it was produced for, so it is local, not committed.
+/status/preflight.json
