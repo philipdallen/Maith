@@ -3353,3 +3353,20 @@ structure-preservation obligation more strongly than an intervention score would
 **Verification:** section 9.5.2 exists with both documented weaknesses and the
 target-selection question applied to #26; the active-track reference block contains the
 Swanson, Smalheiser, ARROWSMITH, and LBD-evaluation-critique citations.
+
+### DEC-057: RLM triage decisions (how a triage finding becomes a task)
+- Date: 2026-10-01
+- Status: accepted
+- Scope: task-filing
+- Decision:
+  - D1: An RLM Analyzer report is unverified LLM triage. A finding becomes a task only after it is confirmed against raw files in this repo.
+  - D2: A refuted or stale finding gets no task. It is recorded in the triage summary with the evidence that refutes it.
+  - D3: Generic web-app security advice (authn/authz, API validation, security headers, WAF, pen testing, SAST/DAST, log anomaly detection) does not apply. This repo runs no web service, so no task is filed for it.
+  - D4: One task per verified finding. No bundling, no extra scope, no refactors, no opportunistic items.
+  - D5: Anything that needs a human choice is filed as a blocker for the owner, not decided by the agent.
+- Rationale:
+  - The reports are a triage aid, not a source of truth. Verification against raw artifacts is the only step that separates a real defect from a plausible-sounding one, which is the same rule the integrity gates already apply to results.
+  - D4 keeps each task claimable in one run and keeps the acceptance check unambiguous.
+- References:
+  - rlm-triage-summary.md in philipdallen/portfolio-ops (branch tasks/rlm-triage-2026-10-01)
+  - docs/MULTI_AGENT_WORKFLOW.md (task definition, blocker mechanics)
