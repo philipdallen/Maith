@@ -44,6 +44,7 @@ datasets/train_*.jsonl
 datasets/eval_*.jsonl
 datasets/embed_proj_*.pt
 datasets/filtered_dropped.json
+datasets/h5_pairs_train.json
 
 # Local Ollama model definitions — not part of the repo
 Modelfile
