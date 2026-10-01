@@ -31,3 +31,5 @@ Do not change the Lean toolchain version. This is an install-mechanism change on
 
 ---
 Filed from the RLM Analyzer triage pass. Filing policy: DEC-057 in `docs/decisions/LOG.md`; consolidated record in `philipdallen/portfolio-ops` (`RLM_TRIAGE_2026-10-01.md`, branch `tasks/rlm-triage-2026-10-01`).
+
+Directive: DEC-057
