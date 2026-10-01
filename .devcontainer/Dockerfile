@@ -16,10 +16,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl git python3 && \
     rm -rf /var/lib/apt/lists/*
 
-# elan (Lean version manager) — matches repo CI exactly.
-RUN curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-      | sh -s -- -y --default-toolchain none && \
-    /root/.elan/bin/elan --version
+# elan (Lean version manager) — matches repo CI exactly. Checksum-pinned (#82):
+# no curl|sh — a tagged release asset is downloaded and its SHA-256 verified
+# before extraction, so a moved/compromised `master` ref cannot change what runs.
+# Bump ELAN_VERSION and ELAN_SHA256 together; digest from the release's
+# `assets[].digest` field (see tooling/install_elan.sh for the query).
+RUN ELAN_VERSION=v4.2.4 \
+ && ELAN_ASSET=elan-x86_64-unknown-linux-gnu.tar.gz \
+ && ELAN_SHA256=42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63 \
+ && curl --proto '=https' --tlsv1.2 -sSfL -o /tmp/$ELAN_ASSET \
+      "https://github.com/leanprover/elan/releases/download/$ELAN_VERSION/$ELAN_ASSET" \
+ && echo "$ELAN_SHA256  /tmp/$ELAN_ASSET" | sha256sum --check --status \
+ && tar -xzf /tmp/$ELAN_ASSET -C /tmp \
+ && /tmp/elan-init -y --default-toolchain none \
+ && rm -f /tmp/$ELAN_ASSET /tmp/elan-init \
+ && /root/.elan/bin/elan --version
 
 ENV PATH="/root/.elan/bin:${PATH}"
 

@@ -19,9 +19,8 @@ Maith pins Lean `v4.31.0` (`lean-toolchain`) and Mathlib `v4.31.0`
 the community Mathlib olean cache is the persistence layer.
 
 ```bash
-# 1. elan (Lean version manager)
-curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-  | sh -s -- -y --default-toolchain none
+# 1. elan (Lean version manager) — checksum-pinned, no curl|sh (Maith #82)
+tooling/install_elan.sh
 export PATH="$HOME/.elan/bin:$PATH"
 
 # 2. toolchain + precompiled Mathlib oleans (Azure community cache)

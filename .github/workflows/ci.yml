@@ -31,10 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install elan
+      - name: Install elan (checksum-pinned)
+        # No curl|sh: tooling/install_elan.sh downloads a tagged release asset
+        # and verifies its SHA-256 before running it (#82).
         run: |
-          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-            | sh -s -- -y --default-toolchain none
+          tooling/install_elan.sh
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Install pinned Lean toolchain

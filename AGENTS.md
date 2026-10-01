@@ -148,8 +148,7 @@ All Maith variants are **toy tier** (<1B). IRCoder's positive results start at 1
 
 **Lean (bootstrap — any sandbox or CI runner, no bespoke machine):**
 ```bash
-curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-  | sh -s -- -y --default-toolchain none
+tooling/install_elan.sh     # checksum-pinned; no curl|sh (Maith #82)
 export PATH="$HOME/.elan/bin:$PATH"
 lake exe cache get          # restore precompiled Mathlib oleans (community Azure cache)
 lake build tests
