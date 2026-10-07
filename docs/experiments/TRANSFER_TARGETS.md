@@ -275,14 +275,107 @@ material — but that is an interpretation the maintainer should confirm at step
 
 ---
 
-## Filtering status (step 2) — NOT DONE
+## Filtering decision (step 2) — SIGNED OFF 2026-10-07
 
-The plan assigns step 2 (the three plain-language criteria) to the **maintainer**,
-and it requires no Lean knowledge. I am recording my own preliminary read so the
-maintainer can check it rather than start cold — but this is **not** the sign-off,
-and the maintainer should overrule it freely.
+**Decision owner:** maintainer. **Recorded:** DEC-057. This closes the single
+blocker on #26 (see `blockers/open_20260916-1050_issue26-transfer-target-steps23.md`).
 
-The three criteria, applied:
+### The two questions the blocker named, answered
+
+**Q1 — open-only, or open + resolved?** **Keep both, split into two tiers.**
+
+This is decided by what gate 3 can actually do, not by preference. Gate 3 is the
+**transfer test**: pull an *existing* theorem back through φ and check the
+kernel accepts the new proof. A transfer needs a theorem that already exists to
+pull back. So:
+
+- **OPEN** targets (no known proof) **cannot pass gate 3** — there is no proof to
+  transfer. A φ that "reaches" one has not transferred anything; it has asserted
+  something unverifiable. These are **aspirational**: they define where a
+  technique would *eventually* aim, and they are legitimate proposal material, but
+  they are not a corpus gate 3 can run against.
+- **RESOLVED-novel** targets (a proof exists, but the literature documents that the
+  technique was special or that a barrier blocks the obvious route) **are the
+  operational corpus**. They are exactly what gate 3 needs: the theorem is known,
+  so the transfer is checkable, and the win is compression — a small generator
+  repays across scales (`AXIOM_DISCOVERY.md`'s "fractal" signal).
+
+Restricting to OPEN-only (the blocker's alternative) would therefore leave the
+track with **no gate-3-passable corpus at all**, because every open target in this
+list is believed to require the very circuit bounds that are blocked. That is the
+decisive reason to keep resolved targets: they are the only ones the harness can
+actually validate against today.
+
+**Q2 — is the list too circuit-heavy?** **Accepted as-is.** Part 2's criterion is
+"a restricted-enough model," not breadth; breadth is Part 1's requirement (the
+reason #31 is blocked), not Part 2's. 7/10 circuit results is consistent with
+Part 2's brief. The breadth-expanding entries already present are the
+proof-complexity targets (T8/T9) and the communication half of T7 — and those are
+precisely the ones needing substrate PleaNP does not have (below), so their
+presence is a *scope flag*, not a filter failure.
+
+### Frozen classification
+
+| Target | Status | Tier | Gate-3 passable? |
+|---|---|---|---|
+| T1 parity ∉ AC⁰ | RESOLVED | **operational** | yes — and already stated unproved in PleaNP (`parity_notin_AC0`) |
+| T2 TC⁰ lower bounds | OPEN | aspirational | no — no proof to transfer |
+| T3 Williams → TC⁰/NC¹ | OPEN (method) | aspirational | no — methodological; no theorem to pull back |
+| T4 monotone CLIQUE | RESOLVED | **operational** | yes |
+| T4 gap to general circuits | OPEN | aspirational | no |
+| T5 Tardos function | RESOLVED | **operational** | yes |
+| T6 matching (2025) | RESOLVED | **operational** | yes — live frontier (arXiv:2507.16105) |
+| T7 monotone KW depth | RESOLVED | **operational** | yes |
+| T7 general depth | OPEN | aspirational | no |
+| T8 Frege / E-Frege | OPEN | aspirational | no — coupled to blocked circuit bounds |
+| T9 super-poly AC⁰-Frege | RESOLVED | **operational** | yes |
+| T9 purely-exponential part | OPEN | aspirational | no |
+| T10 Smolensky AC⁰[p] vs AC⁰[q] | RESOLVED | **operational + reference** | yes |
+| N1 natural proofs | RESOLVED | **reference only** | n/a — screening instrument |
+| N2 relativization / algebrization | RESOLVED | **reference only** | n/a — `#barrier_check` operationalises it |
+
+**Operational set (gate-3 corpus):** T1, T4(monotone), T5, T6, T7(monotone),
+T9(super-poly), T10. **Aspirational set (proposal targets, not gate-3 corpus):**
+T2, T3, T4(gap), T7(general), T8, T9(exponential). **Reference:** N1, N2.
+
+A candidate φ's `domain` field must name the target **and its tier**, so the
+ledger records whether a result was checkable or aspirational.
+
+### Consequence for formalization (step 4) — one real scope limit remains
+
+Step 4 (formalize each statement in `Maith/Benchmark/`, importing
+`PleaNP.Circuits`) is unblocked for the **blanket** case: PleaNP #102 landed
+(DEC-043/050) and the import is verified.
+
+**But the operational set is not uniformly importable.** `PleaNP.Circuits` is
+Boolean-circuit-shaped (gates, families, AC⁰, monotone). Under that substrate:
+
+- **T1, T4(monotone), T5, T6, T7(monotone)** — circuit-shaped; formalizable against
+  `PleaNP.Circuits.Basic`/`AC0`/`Monotone`.
+- **T9, T10** — need a **propositional-proof-system substrate** (Frege / AC⁰-Frege
+  definitions, Cook–Reckhow) that PleaNP does **not** currently have.
+- **T7 (communication half)** — needs a **communication-protocol substrate**, also
+  absent upstream.
+
+So the honest status is: the transfer-target **list** is frozen and #26's blocker
+is cleared; formalizing the operational set fully requires **new substrate** for
+T9/T10 (proof systems) and T7's communication half. That is a *new* task, not part
+of #26, and it is filed as a consequence here rather than absorbed silently.
+
+### What this unblocks
+
+- **#26** — its single blocker (step 2 filtering) is resolved; the list is frozen.
+- **#30** — with a frozen, tiered target list, the first candidate batch can run
+  against the **operational** set (gate-3-passable), while aspirational targets
+  feed the proposal step only. #30 no longer waits on a research pass; it waits on
+  candidate φ's being authored, which is the next task.
+
+---
+
+### Step-2 preliminary read (retained for the record)
+
+The research pass recorded its own preliminary read before this sign-off; it is
+retained below so the reasoning is auditable. The three criteria, applied:
 
 | Target | Specific (named result)? | Hardness documented (barrier/technique)? | Restricted-enough model? | Preliminary |
 |---|---|---|---|---|
