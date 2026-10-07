@@ -3353,3 +3353,102 @@ structure-preservation obligation more strongly than an intervention score would
 **Verification:** section 9.5.2 exists with both documented weaknesses and the
 target-selection question applied to #26; the active-track reference block contains the
 Swanson, Smalheiser, ARROWSMITH, and LBD-evaluation-critique citations.
+
+### DEC-057 — #26 step-2 filtering: targets split into operational (gate-3) and aspirational tiers (2026-10-07)
+
+**Date:** 2026-10-07
+**Status:** Active
+**Scope:** `docs/experiments/TRANSFER_TARGETS.md` (Filtering decision §); closes the
+single open blocker on #26 (`blockers/open_20260916-1050_issue26-transfer-target-steps23.md`,
+Gap 1). No gate, candidate, ledger record, or experiment is touched.
+
+**Decision (maintainer): keep both OPEN and RESOLVED targets, split by what gate 3
+can validate.** The blocker asked whether the filter should be "open-only" or
+"open + resolved." Resolved by what the pipeline can actually check, not by
+preference:
+
+- **OPEN** targets have no proof, so gate 3 (the transfer test — pull an existing
+  theorem back through φ and kernel-check the new proof) **cannot run against
+  them**. They are **aspirational**: valid proposal material, but not a gate-3
+  corpus. A φ "reaching" an open target has asserted something unverifiable.
+- **RESOLVED-novel** targets have a proof, so a transfer is checkable, and the win
+  is compression (the "fractal" signal in `AXIOM_DISCOVERY.md`). These are the
+  **operational** corpus.
+
+Open-only was rejected because every open target in this list is believed to
+require the very circuit bounds that are blocked, so open-only would leave the
+track with **no gate-3-passable corpus**.
+
+**Operational (gate-3) set:** T1, T4(monotone), T5, T6, T7(monotone),
+T9(super-poly), T10. **Aspirational:** T2, T3, T4(gap), T7(general), T8,
+T9(exponential). **Reference only:** N1, N2.
+
+**Circuit-concentration question — accepted as-is.** Part 2's criterion is
+"restricted-enough model," not breadth (breadth is Part 1's requirement, the reason
+#31 is blocked). The breadth-expanding entries (T8/T9 proof complexity, T7
+communication) are exactly the ones needing substrate PleaNP lacks, so their
+presence is a scope flag, not a filter failure.
+
+**Real remaining scope limit, recorded rather than absorbed.** Step 4 (formalize in
+`Maith/Benchmark/`) is unblocked in blanket terms (PleaNP #102 landed; import
+verified — DEC-043/050), but the operational set is **not uniformly importable**:
+`PleaNP.Circuits` is Boolean-circuit-shaped, so T1/T4/T5/T6/T7(monotone) formalize
+against it, while **T9/T10 need a propositional-proof-system substrate** and **T7's
+communication half needs a communication-protocol substrate** — neither exists
+upstream. That is a *new task*, filed as a consequence, not part of #26.
+
+**Unblocks:** #26 (blocker cleared; list frozen) and #30 (first candidate batch can
+now target the operational set; #30's remaining dependency is authored candidate
+φ's, not a research pass).
+
+**Verification:** `TRANSFER_TARGETS.md` §"Filtering decision (step 2) — SIGNED OFF
+2026-10-07" exists and states the tier split; `grep -c "operational"
+docs/experiments/TRANSFER_TARGETS.md` is non-zero; the blocker file's Gap 1 is the
+only item this closes.
+
+
+### DEC-058 — Representation search filed as a second track (spec only, not started) (2026-10-07)
+
+**Date:** 2026-10-07
+**Status:** Proposal / filed — deliberately not started.
+**Scope:** new `docs/experiments/REPRESENTATION_SEARCH.md`. No gate, candidate, ledger
+record, or experiment is touched. No Lean or Python code is written.
+
+**Decision.** File a second research track that makes **the encoding itself a searched
+parameter**, scored by **compositional generalization of a fixed, capacity-bounded
+model** under a kernel (or exhaustive truth-table) **faithfulness constraint**. It is
+complementary to axiom discovery: that track searches for a technique φ and certifies
+transfer; this one searches for a representation and certifies faithfulness plus a
+held-out generalization score.
+
+**Why it is not a rerun of the IR experiments.** Maith tested one representation on
+prediction/retrieval metrics and got a null-to-ambiguous result (DEC-025/027/031/034/035).
+That bounds a *point* in representation space under a *metric* the central hypothesis
+does not care about; it does not bound the space under compositional generalization,
+which was never measured. The prior remains negative and is stated in the spec.
+
+**Well-posedness is the whole design.** The search is only meaningful against a fixed
+external judge: base theory `T`, task distribution `D`, invariance class — all frozen,
+none searchable; faithfulness is a **gate**, not a score; and four anti-degeneracy
+conditions are required (bounded capacity, compositional/OOD split, faithfulness gate,
+fixed `D`). Without all four the search can manufacture flattering results by
+construction, so all four are mandatory in the spec.
+
+**Sequencing — gated on results, per DEC-054.** This track **does not start until #30
+has produced a first candidate batch.** Building the representation-search harness now
+would repeat the infrastructure-ahead-of-results mistake DEC-054 already names. When it
+does start, it reuses the corpus, round-trip validator, hashed splits, and gate
+discipline — nothing is built from scratch.
+
+**Quantum / judgment layer — explicitly out of scope and preconditioned on something
+absent.** No qubit layer is part of this track. Its precondition (composable judgment
+objects whose composition order changes the outcome) does not exist, and Maith's gates
+are order-independent, so there is no interference signature to explain. Recorded so a
+future reader does not add it "to be safe."
+
+**Verification:** `docs/experiments/REPRESENTATION_SEARCH.md` exists; it states the
+frozen-objective constraint (§2), the four anti-degeneracy conditions (§5), the
+falsification criteria (§6), the DEC-054 sequencing gate (§7), and the quantum
+out-of-scope rule (§9). This entry authorizes none of the work it describes — it files
+the spec.
+

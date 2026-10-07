@@ -90,16 +90,21 @@ as such. A maintainer-run cross-check is the natural place to promote them to pr
 
 ## What unblocks each gap
 
+> **RESOLVED 2026-10-07 (DEC-057).** Gap 1 cleared: maintainer filtering applied,
+> OPEN-vs-RESOLVED decided (keep both, split into operational/aspirational tiers).
+> See `TRANSFER_TARGETS.md` §"Filtering decision (step 2) — SIGNED OFF 2026-10-07".
+> This file is closed; #26's blocker is gone.
+
 | Gap | Unblocked by |
 |---|---|
-| 1 (filtering) | maintainer applies the three criteria; decides OPEN-only vs open+resolved. **Still open — the only remaining blocker on #26.** |
+| 1 (filtering) | **RESOLVED 2026-10-07 (DEC-057)** — maintainer chose "keep both, split by gate-3 passability" (operational vs aspirational tiers). |
 | 2 (cross-check) | **OUT OF SCOPE** — no second model available (2026-09-16); mitigated by per-target primary-source checks at time of use. **Closed as a blocker.** |
 | 3 (formalization) | **Cleared** — PleaNP #102 landed 2026-09-16 and the import was verified end-to-end (DEC-040/DEC-050). Remaining: the maintainer's decision on proof/communication substrate for T7/T8/T9 — a *scope* question, not a blocker on #26. |
 
-**Net: #26 now has exactly one blocker — step 2 filtering.** Step 3 is out of scope
-and step 4's upstream dependency cleared while this work was in flight. Once the
-filtering decision lands (including the OPEN-only question), #26 can be claimed and
-closed.
+**Net: #26 has no blocker.** Step 2 filtering landed 2026-10-07 (DEC-057); step 3 is
+out of scope; step 4's upstream dependency cleared. #26 can be closed. The one
+*new* consequence — substrate for T7(communication)/T9/T10 — is filed separately and
+does not block #26.
 
 ## Why this is a blocker and not an implementation detail
 
