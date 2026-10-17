@@ -3,9 +3,12 @@
 
 See docs/AUDITOR.md for the full contract. Summary of the rules that matter:
 
-  * This tool NEVER edits code, never closes/merges anything, and never adds a
-    claimable-status label. Its only writes are (a) GitHub issues/comments/labels
-    and (b) one appended line in this repo's own status_log.jsonl.
+  * This tool never edits code, never merges, and never adds a claimable-status
+    label. Its writes are: (a) GitHub issues/comments/labels, (b) one appended
+    line in this repo's own status_log.jsonl, (c) digest retention -- closing
+    stale `Auditor digest` issues, and only those under exactly `on-hold`
+    (proposals are never touched), and (d) `--self-test`, which creates and
+    deletes a canary file in the working tree (never committed).
   * Every finding is held for human review via the ``on-hold`` label plus
     ``auditor:proposed`` or ``auditor:revise``. Nothing is auto-actioned.
   * The run is idempotent and checkpointed: it exits silently if HEAD has not
@@ -55,6 +58,31 @@ STATUS_BRANCH = "status"
 LABEL_PROPOSED = "auditor:proposed"
 LABEL_REVISE = "auditor:revise"
 LABEL_HOLD = "on-hold"
+
+# --- shared tooling + digest retention --------------------------------------
+# The trio below is canonical in Maith; PleaNP and ephapse carry byte-identical
+# copies. The daily audit watches for silent drift (see check_tooling_drift).
+SHARED_TOOLING_FILES = (
+    "tooling/auditor.py",
+    "tooling/tests/test_auditor.py",
+    "tooling/tests/test_hub_sweep.py",
+)
+SHARED_TOOLING_REPOS = (
+    "philipdallen/Maith",
+    "philipdallen/PleaNP",
+    "philipdallen/ephapse",
+)
+SHARED_TOOLING_CANONICAL = "philipdallen/Maith"
+
+# Digest retention: keep the newest DIGEST_KEEP digests open; close older ones.
+# Date-unique titles make closing dedup-neutral (the auditor never reopens).
+DIGEST_TITLE_PREFIX = "Auditor digest \u2014"
+DIGEST_KEEP = 7
+
+# --self-test canary. The target name is unique on purpose: the dangling-ref
+# check must attribute the finding to this canary and nothing else.
+SELF_TEST_CANARY = "docs/CHAOS_CANARY.md"
+SELF_TEST_TARGET = "docs/chaos-canary-target-does-not-exist.md"
 
 # Labels this repo's task protocol uses to mark work claimable by agents.
 # The auditor must never add one of these -- only the human does, after review.
@@ -942,12 +970,151 @@ def check_dependency_advisories(root: Path, query=osv_query) -> list[Finding]:
         REQUIREMENTS_FILE)]
 
 
+# --------------------------------------------------------------------------
+# shared-tooling drift + digest retention + self-test
+#
+# Three deliberate, scoped additions to the original read-only contract:
+#   * check_tooling_drift watches the byte-identical trio across repos;
+#   * digest retention closes stale digests (proposals are never touched);
+#   * --self-test plants a canary to prove the checks can fire.
+# See docs/AUDITOR.md "Amended contract".
+# --------------------------------------------------------------------------
+
+def _tooling_blob_shas() -> dict[str, dict[str, str | None]]:
+    """Blob SHAs of the shared trio in each repo, via the public API.
+
+    Unauthenticated on purpose: all three repos are public and checks are
+    token-agnostic by design (see run_checks). Nine cheap GETs per daily run,
+    far under the unauthenticated rate limit.
+    """
+    gh = GitHub(None)
+    out: dict[str, dict[str, str | None]] = {}
+    for repo in SHARED_TOOLING_REPOS:
+        files: dict[str, str | None] = {}
+        for f in SHARED_TOOLING_FILES:
+            try:
+                data = gh.get(f"/repos/{repo}/contents/{f}")
+                files[f] = data.get("sha")
+            except Exception:                               # noqa: BLE001
+                files[f] = None
+        out[repo] = files
+    return out
+
+
+def find_tooling_drift(
+    shas: dict[str, dict[str, str | None]],
+) -> list[tuple[str, str, str]]:
+    """Pure core of the drift check: (repo, file, detail) diverging from canonical."""
+    canon = shas.get(SHARED_TOOLING_CANONICAL, {})
+    diverged: list[tuple[str, str, str]] = []
+    for repo in SHARED_TOOLING_REPOS:
+        if repo == SHARED_TOOLING_CANONICAL:
+            continue
+        files = shas.get(repo, {})
+        for f in SHARED_TOOLING_FILES:
+            a, b = canon.get(f), files.get(f)
+            if a and b and a == b:
+                continue
+            if a is None and b is None:
+                detail = "unreadable in both (API failure?)"
+            elif b is None:
+                detail = "missing or unreadable in spoke"
+            elif a is None:
+                detail = "missing or unreadable in canonical copy"
+            else:
+                detail = f"blob {b[:7]} vs canonical {a[:7]}"
+            diverged.append((repo, f, detail))
+    return diverged
+
+
+def check_tooling_drift(root: Path) -> list[Finding]:
+    """The shared trio must not silently drift from the canonical copy.
+
+    `root` is unused: the comparison is across repos via the API, not the
+    working tree. A check that cannot run reports that fact instead of
+    passing silently -- a broken drift watch is indistinguishable from
+    "no drift".
+    """
+    shas = _tooling_blob_shas()
+    if not any(s for files in shas.values() for s in files.values()):
+        return [Finding(
+            "tooling-drift", CATEGORY_ARCH,
+            "Tooling drift check could not reach the GitHub API",
+            "The drift comparison fetched no blob SHAs at all, so drift status "
+            "is unknown -- not clean. This needs investigation, not silence.",
+            "shared-tooling")]
+    diverged = find_tooling_drift(shas)
+    if not diverged:
+        return []
+    lines = [f"- `{f}` in `{r}`: {d}" for r, f, d in diverged]
+    return [Finding(
+        "tooling-drift", CATEGORY_ARCH,
+        f"Shared tooling drift: {len(diverged)} file(s) differ from canonical",
+        "The trio is byte-identical by convention; divergence is silent drift, "
+        f"not a merge conflict. `{SHARED_TOOLING_CANONICAL}` is canonical (it "
+        "carries the status-branch support the others lack) -- sync its files "
+        "into the diverged repos.\n\n" + "\n".join(lines),
+        "shared-tooling")]
+
+
+def select_stale_digests(issues: list[dict],
+                         keep: int = DIGEST_KEEP) -> list[dict]:
+    """Digest issues safe to close, oldest-first beyond the newest `keep`.
+
+    Pure function so the policy is unit-testable. The filter is deliberately
+    strict: title prefix AND the label set exactly {on-hold}. Anything carrying
+    auditor:proposed / auditor:revise (or any other label) is never selected.
+    """
+    digests = [i for i in issues
+               if (i.get("title") or "").startswith(DIGEST_TITLE_PREFIX)
+               and {str(l.get("name")) for l in (i.get("labels") or [])} == {LABEL_HOLD}]
+    digests.sort(key=lambda i: i.get("number", 0), reverse=True)
+    return digests[keep:]
+
+
+def close_issue(gh: GitHub, repo: str, number: int, comment: str) -> None:
+    """Comment, then close. The only sanctioned close path in this tool."""
+    post_comment(gh, repo, number, comment)
+    gh.patch(f"/repos/{repo}/issues/{number}", {"state": "closed"})
+
+
+def self_test(root: Path) -> int:
+    """Chaos check for the auditor itself: prove the checks can fire.
+
+    Plants a canary defect (a dangling doc reference with a unique target),
+    runs the full check registry, and asserts the dangling-doc-ref check
+    reported it. Pure local run: no GitHub calls, no issues, no state writes.
+    The canary file is always removed, even on failure.
+    """
+    canary = root / SELF_TEST_CANARY
+    try:
+        canary.parent.mkdir(parents=True, exist_ok=True)
+        canary.write_text(
+            "# Chaos canary -- do not keep\n\n"
+            f"`{SELF_TEST_TARGET}`\n")
+        findings = run_checks(root, root)
+    finally:
+        try:
+            canary.unlink()
+        except OSError:
+            pass
+    hit = [f for f in findings
+           if f.check == "dangling-doc-ref" and "chaos-canary-target-does-not-exist" in f.body]
+    if hit:
+        print("self-test PASS: dangling-doc-ref check fired on the canary.")
+        return 0
+    print("self-test FAIL: dangling-doc-ref check did not report the canary.",
+          file=sys.stderr)
+    return 1
+
+
 REGISTRY = [
     check_committed_artifacts,
     check_stale_todos,
     check_gate_health,
     check_dangling_doc_refs,
     check_doc_count_drift,
+    check_tooling_drift,
     check_status_log_contract,
     check_stale_owner_refs,
     check_committed_secrets,
@@ -1085,7 +1252,7 @@ def find_existing(issues: list[dict], signature: str) -> dict | None:
 
 
 def digest_title(when: str) -> str:
-    return f"Auditor digest — {when[:10]}"
+    return f"{DIGEST_TITLE_PREFIX} {when[:10]}"
 
 
 def build_digest_body(when: str, sha: str, commits: list[dict],
@@ -1156,8 +1323,8 @@ def create_issue(gh: GitHub, repo: str, title: str, body: str,
 # --------------------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Daily repo health & drift audit (read-only).")
-    ap.add_argument("--repo", required=True, help="owner/name")
+    ap = argparse.ArgumentParser(description="Daily repo health & drift audit.")
+    ap.add_argument("--repo", required=False, default=None, help="owner/name")
     ap.add_argument("--root", default=".", help="repo checkout root")
     ap.add_argument("--token-env", default="GITHUB_TOKEN")
     ap.add_argument("--dry-run", action="store_true")
@@ -1169,9 +1336,18 @@ def main(argv: list[str] | None = None) -> int:
                     help="checkout of the machine-output branch ("
                          f"{STATUS_BRANCH}) holding {STATUS_LOG} and {STATE_PATH} "
                          "(default: --root)")
+    ap.add_argument("--self-test", action="store_true",
+                    help="chaos check: plant a canary defect, prove the checks "
+                         "fire, clean up (pure local run, no GitHub writes)")
     args = ap.parse_args(argv)
 
     root = Path(args.root).resolve()
+
+    # --self-test is a pure local run: no repo slug, token, or state needed.
+    if args.self_test:
+        return self_test(root)
+    if not args.repo:
+        ap.error("--repo is required (unless --self-test)")
     # Machine output is read and written on its own branch; the read-only audit
     # still reads code and docs from `main`.
     status_root = Path(args.status_root).resolve() if args.status_root else root
@@ -1264,6 +1440,21 @@ def main(argv: list[str] | None = None) -> int:
                      f"Re-run for `{sha[:7]}`.\n\n{dbody}")
     else:
         create_issue(gh, args.repo, title, dbody, [LABEL_HOLD])
+
+    # Digest retention: close stale digests. Scoped, documented exception to
+    # the "never closes" rule -- only date-unique digest issues under exactly
+    # ["on-hold"] are selected (see select_stale_digests); proposals
+    # (auditor:proposed/revise) are never touched. Dedup-neutral: the auditor
+    # never reopens closed issues and no future digest can collide with one.
+    stale = select_stale_digests(issues)
+    for i in stale:
+        close_issue(
+            gh, args.repo, i["number"],
+            f"Closing as part of digest retention (keeping the newest {DIGEST_KEEP}). "
+            "Digest titles are date-unique, so this cannot collide with a future "
+            "digest, and the auditor never reopens closed issues.")
+    if stale:
+        print(f"retention: closed {len(stale)} stale digest(s)")
 
     append_status_entry(status_root,
                         build_status_entry(status_root, when, sha, len(opened), len(revised)))
