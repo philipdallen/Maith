@@ -214,6 +214,16 @@ git checkout main && git pull origin main --ff-only
 git push origin main
 ```
 
+## Three-repo shared code
+
+`tooling/auditor.py`, `tooling/tests/test_auditor.py`, and
+`tooling/tests/test_hub_sweep.py` are **byte-identical across Maith, PleaNP,
+and ephapse**, with **this repo's copy canonical** (it carries the status-branch support
+the others lack). Fixes land here first, then propagate to PleaNP and ephapse
+via PR. The daily audit's `tooling-drift` check watches for silent divergence.
+
+Divergence is silent drift, not a merge conflict.
+
 ## Conventions
 
 - **Decision log:** Append-only; format `### DEC-0XX` with Date, Status, Scope, Decision, Rationale

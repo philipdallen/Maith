@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -287,18 +288,38 @@ def test_source_never_adds_claimable_label():
         assert f'"{label}"' not in src.replace('CLAIMABLE_LABELS = {"status:available", "status:claimed"}', ""), label
 
 
-def test_source_never_closes_or_merges():
+def test_close_is_scoped_to_digest_retention():
+    """The only sanctioned close path is digest retention.
+
+    The "never closes" rule has one deliberate, documented exception: stale,
+    date-unique digest issues under exactly ["on-hold"]. This test pins the
+    scope -- a single close site, inside close_issue(), selected by
+    select_stale_digests(). Proposals must never be closeable.
+    """
     src = AUD.read_text()
-    for bad in ('"state": "closed"', "merge_pull_request", "pulls/", "DELETE"):
+    for bad in ("merge_pull_request", "pulls/", "DELETE"):
         assert bad not in src, bad
+    def_idx = src.find("def close_issue(")
+    assert def_idx != -1, "close_issue missing"
+    closes = [m.start() for m in re.finditer(r'"state":\s*"closed"', src)]
+    assert len(closes) == 1, f"expected one close site, found {len(closes)}"
+    assert closes[0] > def_idx, "state=closed outside close_issue()"
+    assert "select_stale_digests" in src
 
 
 def test_source_never_edits_repo_files_except_state_and_log():
     src = AUD.read_text()
     # Only these two paths may be written.
     assert "STATE_PATH" in src and "STATUS_LOG" in src
-    for forbidden in ("unlink(", "shutil.rmtree", "os.remove"):
+    for forbidden in ("shutil.rmtree", "os.remove"):
         assert forbidden not in src, forbidden
+    # The single sanctioned unlink: --self-test removes its own canary file,
+    # always in a finally block; it is never committed.
+    selftest_idx = src.find("def self_test(")
+    assert selftest_idx != -1, "self_test missing"
+    unlinks = [m.start() for m in re.finditer(r"\.unlink\(\)", src)]
+    assert len(unlinks) == 1, f"expected one unlink, found {len(unlinks)}"
+    assert unlinks[0] > selftest_idx, "unlink() outside self_test()"
 
 
 def test_gate_entrypoint_detects_known_runners(tmp_path):
@@ -720,6 +741,123 @@ def test_json_mode_writes_nothing_and_is_parseable(tmp_path):
     assert payload["finding_count"] == len(payload["findings"])
     assert not (root / "status_log.jsonl").exists()
     assert not (root / "status").exists()
+
+
+
+
+# ---- digest retention --------------------------------------------------------
+
+def _issue(n, title, labels):
+    return {"number": n, "title": title,
+            "labels": [{"name": l} for l in labels]}
+
+
+def test_select_stale_digests_keeps_newest_seven():
+    issues = [_issue(100 + d, f"Auditor digest \u2014 2026-10-{d + 1:02d}", ["on-hold"])
+              for d in range(10)]
+    # Proposals and other work are never selected, however old.
+    issues.append(_issue(200, "Auditor digest \u2014 2026-01-01",
+                         ["on-hold", "auditor:proposed"]))
+    issues.append(_issue(201, "[auditor:dangling-doc-ref] docs",
+                         ["on-hold", "auditor:proposed"]))
+    stale = aud.select_stale_digests(issues, keep=7)
+    assert [i["number"] for i in stale] == [102, 101, 100]
+
+
+def test_select_stale_digests_needs_exact_label_set():
+    issues = [_issue(1, "Auditor digest \u2014 2026-10-01", ["on-hold", "extra"])]
+    assert aud.select_stale_digests(issues, keep=0) == []
+
+
+def test_select_stale_digests_short_queue_closes_nothing():
+    issues = [_issue(n, f"Auditor digest \u2014 2026-10-{n:02d}", ["on-hold"])
+              for n in range(1, 8)]
+    assert aud.select_stale_digests(issues, keep=7) == []
+
+
+# ---- tooling drift -----------------------------------------------------------
+
+def _shas(overrides=None):
+    base = {f: "aaa" for f in aud.SHARED_TOOLING_FILES}
+    out = {r: dict(base) for r in aud.SHARED_TOOLING_REPOS}
+    for (repo, f), sha in (overrides or {}).items():
+        out[repo][f] = sha
+    return out
+
+
+def test_find_tooling_drift_clean_tree():
+    assert aud.find_tooling_drift(_shas()) == []
+
+
+def test_find_tooling_drift_flags_diverged_file():
+    div = aud.find_tooling_drift(
+        _shas({("philipdallen/PleaNP", "tooling/auditor.py"): "bbb"}))
+    assert len(div) == 1
+    repo, f, detail = div[0]
+    assert repo == "philipdallen/PleaNP" and f == "tooling/auditor.py"
+    assert "bbb" in detail and "aaa" in detail
+
+
+def test_find_tooling_drift_treats_missing_as_drift():
+    div = aud.find_tooling_drift(
+        _shas({("philipdallen/ephapse", "tooling/auditor.py"): None}))
+    assert len(div) == 1 and div[0][0] == "philipdallen/ephapse"
+
+
+def test_check_tooling_drift_reports_api_outage():
+    # Offline-safe: stub the fetcher directly (no pytest monkeypatch here).
+    orig = aud._tooling_blob_shas
+    aud._tooling_blob_shas = lambda: {}
+    try:
+        findings = aud.check_tooling_drift(Path("."))
+    finally:
+        aud._tooling_blob_shas = orig
+    assert len(findings) == 1
+    assert findings[0].check == "tooling-drift"
+    assert "could not reach" in findings[0].title
+
+
+# ---- self-test ----------------------------------------------------------------
+
+def test_self_test_canary_fires_and_cleans_up(tmp_path):
+    root = init_repo(tmp_path)
+    (root / "docs").mkdir()
+    # Keep the full self-test offline: stub the network-dependent check.
+    # (check_dependency_advisories is already offline-safe: no requirements.txt
+    # in the fixture tree means no query is attempted.)
+    orig = aud._tooling_blob_shas
+    aud._tooling_blob_shas = lambda: {
+        r: {f: "x" for f in aud.SHARED_TOOLING_FILES}
+        for r in aud.SHARED_TOOLING_REPOS}
+    try:
+        rc = aud.self_test(root)
+    finally:
+        aud._tooling_blob_shas = orig
+    assert rc == 0
+    assert not (root / "docs" / "CHAOS_CANARY.md").exists()
+
+
+def test_self_test_cleans_up_on_failure(tmp_path):
+    root = init_repo(tmp_path)
+    (root / "docs").mkdir()
+    # Break the dangling-ref check so the canary is NOT reported; the file
+    # must still be removed. Patch REGISTRY itself: it holds direct function
+    # references, so rebinding the module attribute would not take effect.
+    orig_reg = aud.REGISTRY
+    stub = lambda root: []  # noqa: E731
+    aud.REGISTRY = [stub if fn.__name__ == "check_dangling_doc_refs" else fn
+                    for fn in orig_reg]
+    orig_shas = aud._tooling_blob_shas
+    aud._tooling_blob_shas = lambda: {
+        r: {f: "x" for f in aud.SHARED_TOOLING_FILES}
+        for r in aud.SHARED_TOOLING_REPOS}
+    try:
+        rc = aud.self_test(root)
+    finally:
+        aud.REGISTRY = orig_reg
+        aud._tooling_blob_shas = orig_shas
+    assert rc == 1
+    assert not (root / "docs" / "CHAOS_CANARY.md").exists()
 
 
 if __name__ == "__main__":
