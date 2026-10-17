@@ -14,7 +14,9 @@ action on its own.** Every finding is a proposal held for review.
   read-only `POST` to a public API. It sends package names and versions from
   `requirements.txt` and nothing else, and if it cannot run, that is *reported*
   rather than silently skipped.)
-- **Not a fixer.** It never edits code, merges, closes, or resolves anything.
+- **Not a fixer.** It never edits code, merges, or resolves anything. It closes
+  exactly one class of issue -- stale `Auditor digest` digests (see "Digest
+  retention" below) -- and never proposals.
 - **Not a second tracker.** It opens proposals and a digest; it does not move
   work through the pipeline.
 - **Not connected to the dashboard.** It writes one line to this repo's own
@@ -53,6 +55,11 @@ exits without creating anything** — no issue, no comment, no status line.
   count is often genuinely tiered.
 - **`status-log-contract`** — this repo's own `status_log.jsonl` must stay
   parseable for the dashboard that reads it.
+- **`tooling-drift`** — the shared trio (`tooling/auditor.py` and its tests) is
+  byte-identical across Maith/PleaNP/ephapse by convention, with Maith's copy
+  canonical. This check compares blob SHAs via the public API and reports any
+  divergence; a check that cannot reach the API reports that instead of passing
+  silently.
 - **`stale-owner-ref`** — references to a *retired* account/repo slug surviving
   outside the frozen record. The project's GitHub account has been renamed, and a
   clone URL, `--repo` example, or prose sentence still naming the previous slug is
@@ -188,13 +195,35 @@ appends **one** line:
 
 ## Hard constraints (enforced, and tested)
 
-- Never merge, close, or auto-resolve anything.
+- Never merge or auto-resolve anything. The single sanctioned close is digest
+  retention (below); proposals (`auditor:proposed`/`auditor:revise`) are never
+  closed by automation.
 - Never add a claimable-status label — only the human does that, after review.
 - Never edit code. The only files it writes are `status/auditor_state.json` and
   `status_log.jsonl`.
 - Never touch the HuB repo or any other repo.
 - The analysis is read-only and takes no lock, so it cannot race a concurrent
   agent; the only shared state it mutates is appended under a single write.
+
+## Amended contract: digest retention and self-test
+
+Two deliberate, scoped additions to the original contract (shipped 2026-10-17,
+both covered by `tooling/tests/test_auditor.py`):
+
+- **Digest retention.** At the end of each daily run the auditor closes digest
+  issues older than the newest 7, selected by title prefix (`Auditor digest —`)
+  *and* the label set exactly `["on-hold"]`. Anything carrying
+  `auditor:proposed`/`auditor:revise` (or any other label) is never selected.
+  Closing is dedup-neutral: digest titles are date-unique and the auditor never
+  reopens closed issues.
+- **`--self-test`.** A chaos check for the auditor itself: plants a canary file
+  (`docs/CHAOS_CANARY.md` with a dangling reference), runs the full check
+  registry, asserts the `dangling-doc-ref` check fired on it, then deletes the
+  canary. Pure local run -- no GitHub calls, no issues, no state. Run by hand:
+
+  ```bash
+  python3 tooling/auditor.py --self-test --root /path/to/checkout
+  ```
 
 ## Running it by hand
 
