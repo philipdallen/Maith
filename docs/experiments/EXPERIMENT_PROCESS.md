@@ -238,7 +238,7 @@ marked as unverified in the registry.
 | `python/launch_run.py` | Structured experiment launcher (train, extract, eval, grid) |
 | `python/check_invariants.py` | The gate — 6 invariants, hard-fails on violation |
 | `python/manifest.py` | Provenance manifest system (write/load/verify) |
-| `python/test_invariants.py` | Unit tests for the invariant checker (11 tests) |
+| `python/test_invariants.py` | Unit tests for the invariant checker (23 tests) |
 | `docs/experiments/RUN_REGISTRY.md` | Checkpoint provenance reference + comparison matrix |
 | `docs/experiments/PIPELINE_HARDENING_SCOPE.md` | Design doc for the harness |
 | `docs/experiments/KNOWN_ISSUES.md` | Known bugs and their status |

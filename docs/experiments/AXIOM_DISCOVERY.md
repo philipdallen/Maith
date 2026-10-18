@@ -3,7 +3,7 @@
 ## Status
 
 Active track, superseding the toy-model training path. (The original text
-attributed the "shelved" decision to a `DIRECTION.md`; no such file exists in
+attributed the "shelved" decision to a DIRECTION.md; no such file exists in
 this or any sibling repo — see "Reconciliation note" below. The shelving is
 recorded in `README.md` §9 and DEC-036.) Toy-model training remains shelved.
 This document promotes a speculative "AI-authored axiom systems via a
@@ -20,7 +20,7 @@ acting on any step below, note what was verified on 2026-09-15:
 | "HOF application support / projection expression parsing — still the highest-priority extraction gaps... remains the actual blocking dependency." | **Implemented and passing.** `Maith/MetaExtractor.lean` handles variable-headed application (`hof`) and `.proj`; `Tests/CorpusPipelineTests.lean::testHOFApplicationExtracts` / `testProjectionExtracts` pass. (The inline code comment in `MetaExtractor.lean` saying they are "NOT covered" is itself stale — a branch immediately below covers them.) This is **not** the blocking dependency; see the actual one below. |
 | "complexitylib / descriptive-complexity (external, once toolchain reconciliation in PleaNP issue #70 lands) — source of the circuit complexity benchmark corpus." | **Superseded.** PleaNP #70 closed 2026-09-13 **rejecting** the `complexitylib` import (it pins `v4.34.0-rc2` + `cslib` vs PleaNP's stable `v4.31.0`), and chose a local `PleaNP.Circuits`. That module now exists and is materially further along than "stub" (five type-checking modules on PleaNP `dev`: `Basic`, `AC0`, `Monotone`, `MonotoneApprox`, `MustRefute`), though it is concentrated in one area. See `BENCHMARK_CORPUS_PLAN.md` §Dependencies. |
 | "the toy-model training loop and harness (moved to `archive/`, not deleted)" | **No `archive/` directory exists.** The toy-model scripts (`train.py`, `train_h5_*`, `train_h9_*`, `train_v2_resume.py`) are still live and referenced by `python/manage.py` and `python/launch_run.py`. The shelving is a *research-direction* decision, not a filesystem move. |
-| "DIRECTION.md" (3 references) | No `DIRECTION.md` in Maith, PleaNP, muse, or philharmonic. |
+| "DIRECTION.md" (3 references) | No DIRECTION.md in Maith, PleaNP, muse, or philharmonic. |
 | "Decision log (DEC-001 through DEC-024+)" | The log now runs to DEC-036. |
 | PleaNP's `#barrier_check` elaborator | **Exists and is real** — `lean/PleaNP/Calculus/BarrierCalculus.lean` (Rung 5). This integration point is valid. |
 

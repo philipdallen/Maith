@@ -140,7 +140,7 @@ above. The proposal should:
 - Include the risk mitigations from Step 8
 - Include a step-by-step implementation checklist
 
-The proposal goes in `docs/PROBING_TASK_PROPOSAL.md`.
+The proposal goes in docs/PROBING_TASK_PROPOSAL.md (planned location; no such file yet).
 
 ---
 

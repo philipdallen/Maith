@@ -294,7 +294,7 @@ The implementation is complete when:
 - **Rewriting `check_invariants.py`** — extend it, don't replace it
 - **G1-5 (lake build tests)** — requires Lean toolchain; skip if `lean` not on PATH
 - **G2-5 version string check** — advisory warn only, not a hard gate failure
-- **G5 (evaluation gates)** — the full Gate 5 suite is separate scope after P0–P1 is stable
+- **G5 (evaluation gates)** — the full suite for gate 5 is separate scope after P0–P1 is stable
 - **Any changes to `train_v2_resume.py` or `build_dataset.py`** — the gate scripts read
   their output; they do not modify the scripts that produce it
 
@@ -309,11 +309,11 @@ The implementation is complete when:
 | `python/check_corpus.py` | Create | Task 3: Gate 2 script |
 | `python/launch_run.py` | Modify | Task 4: post-train validation; Task 5: dataset gate call |
 | `python/manage.py` | Modify | Task 6: `gate` subcommand |
-| `python/tests/test_quality_gates.py` | Create | Tests for the new gate scripts |
+| python/tests/test_quality_gates.py | Create | Tests for the new gate scripts |
 
 ---
 
-## Test cases to include in `test_quality_gates.py`
+## Test cases to include in test_quality_gates.py
 
 | Test | What it verifies |
 |---|---|

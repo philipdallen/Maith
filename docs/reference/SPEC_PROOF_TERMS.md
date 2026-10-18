@@ -132,7 +132,7 @@ decision lives.
 
 ## What this spec deliberately does NOT include
 
-- No `ProofNormalizer.lean` / no collapsing of structural tokens (deferred to Layer 2)
+- No ProofNormalizer.lean / no collapsing of structural tokens (deferred to Layer 2)
 - No truncation / honesty-token mechanism beyond existing size thresholds
 - No tactic-state capture (tactics aren't in `Expr`)
 - No change to the v2 A/B/C perplexity comparison (preserved as statement-prediction result)

@@ -124,7 +124,7 @@ families, not noise.
 ## Tests
 
 ```bash
-python3 python/test_structural_similarity.py        # 17 tests
+python3 python/test_structural_similarity.py        # 19 tests
 python3 python/test_structural_similarity_guard.py  # 9/9 mutations detected
 ```
 

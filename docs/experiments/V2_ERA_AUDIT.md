@@ -67,7 +67,7 @@ v2 (C1+C2+C4) rather than the superseded v1.x state.
 
 ### scratch/ (session analyses — current)
 - `runs_audit.md`, `variant_c_eval_bug.md`, `v2_token_analysis.md`,
-  `resume_notes_v2.md`, `REPO_AUDIT.md`, `AUDIT_2026_08_04.md`,
+  `REPO_AUDIT.md`, `AUDIT_2026_08_04.md`,
   `Openhands_Proposal.md` — all current session analyses. Fine as scratch.
 
 ### Root
