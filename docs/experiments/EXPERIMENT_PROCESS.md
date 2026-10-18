@@ -51,7 +51,7 @@ What it does:
 2. Records the run in `RUN_REGISTRY.md` with a run ID and config
 3. Creates a versioned run directory: `runs/variant_A_v3_2ep_{timestamp}/`
 4. Launches the training script with the right args
-5. Writes a manifest (`manifest.json`) after completion
+5. Writes a manifest (`manifest.json (run-time artifact)`) after completion
 
 The `--config-tag` is a short label for the run (e.g. `v3_2ep`, `b_small_3ep`).
 It's part of the run ID and directory name, so make it descriptive.

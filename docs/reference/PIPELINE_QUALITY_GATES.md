@@ -163,7 +163,7 @@ training split and writes `runs/variant_*/checkpoint-final/` and `results.json`.
 |---|---|---|
 | **G4-1 Checkpoint exists** | `checkpoint-final/` present and non-empty | Training crashed without a checkpoint |
 | **G4-2 Results complete** | `results.json` has `eval_perplexity`, `epochs`, `train_examples`, `n_params_M`, `vocab_size`, `learning_rate`, `effective_batch_size`, `max_seq_len` | Incomplete run — metrics can't be compared. **Note:** pre-2026-08-11 checkpoints (B_small, B, C, flat) lack `learning_rate`/`effective_batch_size`/`max_seq_len`. The gate should grandfather these legacy checkpoints or warn, not fail. |
-| **G4-3 Loss descended** | `loss_curve.json` final train loss < initial train loss by ≥50% | Training diverged or made no progress |
+| **G4-3 Loss descended** | `loss_curve.json (run-time artifact)` final train loss < initial train loss by ≥50% | Training diverged or made no progress |
 | **G4-4 Perplexity plausible** | `eval_perplexity` in `(1.0, vocab_size)` — not NaN, not >100 | Training collapse or eval bug |
 | **G4-5 Checkpoint-results consistency** | `results.json` mtime within 7 days of checkpoint mtime | Invariant 2 — stale results.json from a previous run |
 | **G4-6 Config recorded** | `results.json` includes `learning_rate`, `effective_batch_size`, `max_seq_len` | Can't reproduce the run or compare configs |

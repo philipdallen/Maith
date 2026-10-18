@@ -45,14 +45,22 @@ exits without creating anything** — no issue, no comment, no status line.
 ### High level — architecture and drift
 
 - **`dangling-doc-ref`** — backticked file paths in `docs/` that resolve nowhere.
-  A reference attributed to a sibling repo, a wildcard/placeholder, or a bare
+  A reference attributed to a sibling repo (in the surrounding prose or in the
+  path itself), a wildcard/placeholder, a gitignored run-time artifact, or a bare
   basename that exists somewhere in the tree is *not* reported; those are
-  citations or loose prose references, not drift.
+  citations or loose prose references, not drift. Frozen logs
+  (`docs/decisions/`, `docs/history/`) are excluded too: they record what was
+  true when written, and rewriting a path to match today's tree would make them
+  false.
 - **`doc-count-drift`** — docs that cite contradictory counts of the same thing
   ("N gates", "N checks", "N ids"). This is the class the spec calls out
-  explicitly. Only a disagreement *between* documents is reported; the check does
-  not attempt to derive which number is correct, because for this repo family the
-  count is often genuinely tiered.
+  explicitly. Only a disagreement *between* documents about the *same subject*
+  is reported: a claim is keyed by the backticked file on its line, and a bare
+  number with no named subject is skipped. The repo family's counts are
+  genuinely tiered (9 tier-1 of 38 gates; different test files hold different
+  test counts), so comparing unrelated numbers would flag the docs forever
+  without a fixable cause. Frozen logs (`docs/decisions/`, `docs/history/`) are
+  excluded for the same reason as above.
 - **`status-log-contract`** — this repo's own `status_log.jsonl` must stay
   parseable for the dashboard that reads it.
 - **`tooling-drift`** — the shared trio (`tooling/auditor.py` and its tests) is
@@ -199,7 +207,7 @@ appends **one** line:
   retention (below); proposals (`auditor:proposed`/`auditor:revise`) are never
   closed by automation.
 - Never add a claimable-status label — only the human does that, after review.
-- Never edit code. The only files it writes are `status/auditor_state.json` and
+- Never edit code. The only files it writes are `status/auditor_state.json (on the status branch, not main)` and
   `status_log.jsonl`.
 - Never touch the HuB repo or any other repo.
 - The analysis is read-only and takes no lock, so it cannot race a concurrent
@@ -264,7 +272,7 @@ Recorded rather than decided silently:
   instead: a gate count that does not match the number of executables.
 - **TODO/FIXME age threshold** (120 days) and the report cap (8) were chosen, not
   specified. Both are constants at the top of `tooling/auditor.py`.
-- **Checkpoint location** — `status/auditor_state.json`, because `status/` already
+- **Checkpoint location** — `status/auditor_state.json (on the status branch, not main)`, because `status/` already
   exists in this repo family and the spec forbade inventing a new location.
 - **`auditor:revise` is defined but not yet produced** by a built-in check. The
   label, the comment-on-existing-issue path, and the digest wiring all exist and

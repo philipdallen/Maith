@@ -34,7 +34,7 @@ training from scratch.
 - Temperature: 0.07 (standard SimCSE default)
 
 **Pair construction:** `build_h5_pairs.py`
-- Source: `datasets/train_A.jsonl` + `datasets/dependency_groundtruth.json`
+- Source: `datasets/train_A.jsonl` + `datasets/dependency_groundtruth.json (built by build_dependency_groundtruth.py)`
 - Strategy: shared_dependency (≥1 shared dep = positive pair)
 - 12,460 pairs from 3,375 declarations (max 5 per anchor)
 - Pairs file: `datasets/h5_pairs_train.json`
