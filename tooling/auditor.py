@@ -406,7 +406,8 @@ def check_gate_health(root: Path) -> list[Finding]:
 # A reference introduced by another repo's name is a cross-repo citation
 # ("Maith `EXPERIMENT_MEASUREMENT.md`"), not a path this repo ever owned.
 SIBLING_REPOS = ("Maith", "PleaNP", "ephapse", "Ephapse", "muse", "rubato", "HuB",
-                 "mathlib", "Mathlib", "upstream", "sibling")
+                 "mathlib", "Mathlib", "upstream", "sibling",
+                 "portfolio-ops", "Portfolio-ops")
 
 
 def _is_cross_repo(text: str, start: int) -> bool:
@@ -521,8 +522,17 @@ def check_dangling_doc_refs(root: Path) -> list[Finding]:
         "docs")]
 
 
+# Exclusions (all documented false positives from 2026-10-18 doc-hygiene sweep):
+# - "#70 gates", "#30 tests": issue-number references, not counts
+# - "DEC-022 gates", "3/4 gate": the digit belongs to an identifier/version
+# - "Tier-1 gate": the digit belongs to a tier label
+# - "Gate 2 check", "Rung 8 test": the digit identifies the gate/rung, not a count
+# - "v2 tests", "sha256 checks": the digit belongs to a name/hash
+# The lookbehinds are all fixed-width, as re requires.
 COUNT_CLAIM = re.compile(
-    r"\b(\d{1,4})\s+(?:gates?|checks?|suites?|tests?|ids?)\b", re.IGNORECASE)
+    r"(?<![#\w/-])(?<!\bgate )(?<!\brung )"
+    r"(\d{1,4})\s+(?:gates?|checks?|suites?|tests?|ids?)\b",
+    re.IGNORECASE)
 
 
 def check_doc_count_drift(root: Path) -> list[Finding]:
