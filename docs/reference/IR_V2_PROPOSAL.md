@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The current IR (`semantic_graph_ir_v1_2_0`) trails BPE baselines by ~0.17 perplexity points and ~6-7% completion accuracy across Phases 5, 6, and DEC-021. Analysis (see `IR_SCHEMA_AUDIT.md`) identifies ~40-50% of sequence tokens as structural noise that does not contribute to predictive signal:
+The current IR (`semantic_graph_ir_v1_2_0`) trails BPE baselines by ~0.17 perplexity points and ~6-7% completion accuracy across Phases 5, 6, and DEC-021. Analysis (see `docs/reference/IR_SCHEMA.md`) identifies ~40-50% of sequence tokens as structural noise that does not contribute to predictive signal:
 
 - **Polarity tokens** (`pos`, `neg`, `neut`) are 99.7% `neut` — inflating sequences by ~24%
 - **`eq` relations** comprise 83% of R rows — these are mostly type annotations

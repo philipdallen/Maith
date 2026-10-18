@@ -48,8 +48,7 @@ needed, version it separately and re-baseline.
 ### Comparison structure — the 2×2 control matrix (standard template)
 
 Every IR candidate gets **its own comparison matrix** (e.g.
-`docs/experiments/V2_COMPARISON_MATRIX.md`, or a `V2_1_COMPARISON_MATRIX.md` /
-`V3_COMPARISON_MATRIX.md` for a later candidate) in the same format as
+`docs/experiments/V2_COMPARISON_MATRIX.md`, or a V2_1_COMPARISON_MATRIX.md / V3_COMPARISON_MATRIX.md for a later candidate (names hypothetical) in the same format as
 `docs/experiments/V2_COMPARISON_MATRIX.md`. The 2×2 grid (representation × model
 size) is the standard template:
 

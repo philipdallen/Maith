@@ -236,7 +236,7 @@ comparison explicit and checked — so you cannot accidentally produce a table w
 variables changed at once (the original A-vs-B/C size confound) without the gate rejecting
 it.
 
-**Deliverable:** `python/comparison_gate.py` + the claim spec registry. Every existing
+**Deliverable:** python/comparison_gate.py (planned, not yet built) + the claim spec registry. Every existing
 compare/results script routes through it.
 
 ### 4.4 Deterministic reproduction checks (trust requires repeatability)
@@ -254,7 +254,7 @@ output. Add:
 These are cheap (seconds-minutes) and catch an entire class of "the result changed when I
 re-ran it" bugs that currently require a human to notice.
 
-**Deliverable:** `python/test_determinism.py` — runs the three checks on fixtures and
+**Deliverable:** python/test_determinism.py (planned, not yet built) — runs the three checks on fixtures and
 committed artifacts.
 
 ---
@@ -313,9 +313,9 @@ process ~1 day.
 - `python/check_invariants.py` passing on all current artifacts, with documented invariants
   and a test suite (`test_invariants.py`) that confirms it fails on intentionally-broken
   fixtures.
-- `python/comparison_gate.py` with a claim registry; every comparison script routed through
+- python/comparison_gate.py with a claim registry; every comparison script routed through
   it.
-- `python/test_determinism.py` passing (embedding/eval/dataset determinism confirmed).
+- python/test_determinism.py passing (embedding/eval/dataset determinism confirmed).
 - Every experiment script calls `check_invariants.py` at startup and hard-fails on
   violation.
 - The IR-tokens-to-B/C bug, if it were reintroduced, is caught by invariant 3 and blocks

@@ -104,7 +104,7 @@ in §Commands).
 | **#32–#34** | Search/proposal refinements (failure-mode enum, failure retrieval, gate 6) | filed 2026-09-16; **explicitly not the current priority** — do not reorder to start them |
 | — | PleaNP **#102** (root lakefile) | external blocker for #26's formalization step |
 
-CI is green on both `main` and `dev` (3 jobs: Lean build+test, Tier-1 gates,
+CI is green on both `main` and `dev` (3 jobs: Lean build+test, Tier-1 validation gates,
 stdlib-only Python tests). `main` and `dev` are content-identical.
 
 ## Cross-repo imports (RESOLVED: option (a)) — for #26

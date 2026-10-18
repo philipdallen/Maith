@@ -237,7 +237,7 @@ the representation isn't producing useful semantic embeddings.
 - Dependency ground truth built from `Corpus/corpus.jsonl`, exclusions applied.
 - Recall@{1,5,10,20} + MRR reported for Mode 1 (eval→train) and Mode 2 (train→train)
   for all variants, with bootstrap CIs and a paired A-vs-B-small test.
-- `H6_RESULTS.md` states the verdict against the §5.2 gate and acknowledges the §5.4
+- `H6_RESULTS.md` states the verdict against the gate in §5.2 and acknowledges the §5.4
   confound.
 - `HYPOTHESIS_GRID.md` H6 row updated; `LOG.md` has a new DEC entry.
 
@@ -259,5 +259,4 @@ remainder.
   theorem proving at large scale. Read accordingly.
 
 This is the one experiment the project can run that produces an honest result either
-way at the project's compute scale. Run it, then write up and close out per the §5.2
-gate — do not let it become the entry to a new chase.
+way at the project's compute scale. Run it, then write up and close out per the gate in §5.2 — do not let it become the entry to a new chase.

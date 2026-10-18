@@ -149,7 +149,7 @@ The following table documents all 9 concerns raised by Kit in `doc/Openhands_Pro
 | 5 | **Cross-module sharing discrepancy** — 18.8% stated vs 15.5% actual | ✅ Resolved: Using verified 310/1,999 = 15.5% from audit. |
 | 6 | **Degeneracy detection** — mean > median not valid for 896-dim vectors | ✅ Resolved: Using std < 0.01 threshold as in Kit_Proposal.md. |
 | 7 | **Memorization detection** — weight inspection not applicable to 896×11 linear layer | ✅ Resolved: Using GEN_UNK filtering approach (replace module-exclusive gen: tokens, check if accuracy drops). |
-| 8 | **Save format** — nested JSON for float vectors inefficient | ✅ Resolved: Using `.pt` tensors per variant + separate `labels.json`. |
+| 8 | **Save format** — nested JSON for float vectors inefficient | ✅ Resolved: Using `.pt` tensors per variant + separate labels.json (planned output). |
 | 9 | **MPS seed** — only CPU seed set, not MPS RNG | ✅ Resolved: Setting both `torch.manual_seed(42)` and `torch.mps.manual_seed(42)`. |
 
 ---
@@ -478,7 +478,7 @@ torch.mps.manual_seed(42)  # MPS has separate RNG
   #   Report: mean ± std across 3 seeds
   ```
 - [ ] 3.2 Compute random baseline: uniform random predictions = 1/11 = 9.1%
-- [ ] 3.3 Check for memorization (Risk 2): if time permits, run GEN_UNK filtering experiment
+- [ ] 3.3 Memorization check (Risk 2): if time permits, run GEN_UNK filtering experiment
 - [ ] 3.4 Write `runs/probing/task1_results.json`:
   ```json
   {
@@ -552,8 +552,8 @@ torch.mps.manual_seed(42)  # MPS has separate RNG
 
 - `docs/experiments/PROBING_TASK_GUIDE.md` — research guide this proposal satisfies
 - `docs/experiments/PROBING_TASK_FINAL.md` — this document
-- `docs/Kit_Proposal.md` — Kit's original proposal (elements adopted)
-- `doc/Openhands_Proposal.md` — OpenHands's original proposal (elements adopted, [KIT] concerns resolved)
+- Kit's original proposal — elements adopted above (source doc removed as obsolete in 2026-07 docs cleanup)
+- `docs/scratch/Openhands_Proposal.md` — OpenHands's original proposal (elements adopted, [KIT] concerns resolved)
 - `docs/scratch/AUDIT_2026_08_04.md` — verified experimental data (all numbers sourced here)
 - `docs/decisions/LOG.md` — DEC-024 (open questions this addresses), DEC-021, DEC-023
 - `docs/history/PHASE_7_ROADMAP.md` — Phase 7 decision tree, items this gates

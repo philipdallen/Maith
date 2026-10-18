@@ -345,7 +345,7 @@ Assumptions:
   - For each example: forward pass, mean-pool hidden states
   - Save: `{example_name: {checkpoint_name: hidden_vector}}`
 
-> **[KIT]** The save format `{example_name: {checkpoint_name: hidden_vector}}` is JSON-shaped but 896-dim float vectors do not belong in JSON — they should be saved as tensors in `.pt` files (one per variant), with a separate `labels.json` for the metadata. Saving as nested JSON would be extremely slow and memory-inefficient at 4,029 × 4 × 896 floats.
+> **[KIT]** The save format `{example_name: {checkpoint_name: hidden_vector}}` is JSON-shaped but 896-dim float vectors do not belong in JSON — they should be saved as tensors in `.pt` files (one per variant), with a separate labels.json for the metadata (planned output). Saving as nested JSON would be extremely slow and memory-inefficient at 4,029 × 4 × 896 floats.
 
 - [ ] 1.3 Verify extraction determinism (run twice, compare hashes)
 - [ ] 1.4 Check representation variance (sanity check)

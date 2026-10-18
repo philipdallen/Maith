@@ -99,7 +99,7 @@ Accept iff the axiom set is exactly the trusted standard set
 ## 4. Gate discipline â€” the protocol Maith now follows
 
 1. **No claim without a gate.** Any statement Maith asserts (a homomorphism
-   obligation, a transfer result, an IR-property claim) runs the Tier-1 gates
+   obligation, a transfer result, an IR-property claim) runs the Tier-1 validation gates
    before it is cited as evidence.
 2. **No `sorry` in a claimed-complete proof.** Render-stage placeholders are
    allowed during development (hygiene runs without `--prove-stage`); frozen

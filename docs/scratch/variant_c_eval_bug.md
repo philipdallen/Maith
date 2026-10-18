@@ -21,7 +21,7 @@ written Aug 1 but its `checkpoint-final` (Jul 31) is the older, weaker model.
 The eval loads the checkpoint → ~1.5% top-1.
 
 The **authoritative** C model is `runs/variant_C_v2/` (Aug 1, consistent
-timestamps): `checkpoint-final` + `results.json` (1.098) + `loss_curve.json`
+timestamps): `checkpoint-final` + `results.json` (1.098) + loss_curve.json
 all dated Aug 1 19:53; loss_curve final eval_loss 0.137 (ppl 1.147 by the
 Trainer's batched eval, vs 1.098 by the final full-split perplexity eval —
 consistent measurement difference, same model).
