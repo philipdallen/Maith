@@ -860,6 +860,26 @@ def test_self_test_cleans_up_on_failure(tmp_path):
     assert not (root / "docs" / "CHAOS_CANARY.md").exists()
 
 
+def test_count_claim_matches_true_counts():
+    for s in ["7 gates", "23 tests", "38 ids", "37 gates", "6 tests",
+              "19 tests", "11 tests", "5 checks", "12 suites", "452 tests"]:
+        assert aud.COUNT_CLAIM.search(s), f"should match: {s!r}"
+
+
+def test_count_claim_excludes_documented_false_positives():
+    # From the 2026-10-18 doc-hygiene sweep: issue refs, identifiers, tier/gate
+    # labels, and version strings are not count claims.
+    for s in ["#70 gates", "#30 tests", "DEC-022 gates", "DEC-017 gate",
+              "Tier-1 gate", "Tier-1 gates", "Gate 2 check item",
+              "Gate 4 checks", "Rung 8 test case", "Fix 3/4 gate",
+              "v2 tests", "#3 tests"]:
+        assert not aud.COUNT_CLAIM.search(s), f"should not match: {s!r}"
+
+
+def test_sibling_repos_includes_portfolio_ops():
+    assert "portfolio-ops" in aud.SIBLING_REPOS
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
@@ -879,22 +899,3 @@ if __name__ == "__main__":
     print()
     print("ok" if not fails else f"{fails} failed")
     raise SystemExit(1 if fails else 0)
-
-def test_count_claim_matches_true_counts():
-    for s in ["7 gates", "23 tests", "38 ids", "37 gates", "6 tests",
-              "19 tests", "11 tests", "5 checks", "12 suites", "452 tests"]:
-        assert aud.COUNT_CLAIM.search(s), f"should match: {s!r}"
-
-
-def test_count_claim_excludes_documented_false_positives():
-    # From the 2026-10-18 doc-hygiene sweep: issue refs, identifiers, tier/gate
-    # labels, and version strings are not count claims.
-    for s in ["#70 gates", "#30 tests", "DEC-022 gates", "DEC-017 gate",
-              "Tier-1 gate", "Tier-1 gates", "Gate 2 check item",
-              "Gate 4 checks", "Rung 8 test case", "Fix 3/4 gate",
-              "v2 tests", "#3 tests"]:
-        assert not aud.COUNT_CLAIM.search(s), f"should not match: {s!r}"
-
-
-def test_sibling_repos_includes_portfolio_ops():
-    assert "portfolio-ops" in aud.SIBLING_REPOS
