@@ -515,7 +515,15 @@ def test_c1_polarity_catches_real_polarity_placement():
 
 
 def test_c1_polarity_on_real_datasets():
-    """The committed datasets must satisfy C1 today."""
+    """The committed datasets must satisfy C1 today.
+
+    The datasets are untracked build artifacts (#84), so a fresh clone and CI
+    have none on disk. Skip cleanly there; when the files are present the check
+    must still be non-vacuous.
+    """
+    if not any((REPO / "datasets").glob("*.jsonl")):
+        print("  SKIP  test_c1_polarity_on_real_datasets (no datasets on disk)")
+        return
     res = check_c1_polarity_absence(REPO / "datasets")
     bad = [r for r in res if r["passed"] is False]
     assert not bad, f"committed datasets violate C1: {bad}"
@@ -524,6 +532,14 @@ def test_c1_polarity_on_real_datasets():
 
 
 def test_grammar_arity_on_real_datasets():
+    """The committed datasets must satisfy the grammar today.
+
+    Datasets are untracked build artifacts (#84); skip when absent (CI), and
+    stay non-vacuous when present.
+    """
+    if not any((REPO / "datasets").glob("*.jsonl")):
+        print("  SKIP  test_grammar_arity_on_real_datasets (no datasets on disk)")
+        return
     res = check_grammar_arity(REPO / "datasets")
     bad = [r for r in res if r["passed"] is False]
     assert not bad, f"committed datasets violate the grammar: {bad}"
