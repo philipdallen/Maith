@@ -3452,3 +3452,65 @@ falsification criteria (§6), the DEC-054 sequencing gate (§7), and the quantum
 out-of-scope rule (§9). This entry authorizes none of the work it describes — it files
 the spec.
 
+
+### DEC-059 — `transformers` pin stays at 4.57.6 as an accepted risk; the bump target is 5.10.0 (2026-10-18)
+
+**Date:** 2026-10-18
+**Status:** Active
+**Scope:** `requirements.txt` (the `transformers==4.57.6` pin) and the issue #85
+tracker. This entry changes no pin, no code, and no experiment; it records a decision
+and corrects the premise it was recorded under.
+
+**Decision (maintainer, issue #85): keep the pin; track the risk rather than bump
+now.** Bumping 4.x→5.x changes the dependency set behind the recorded H5/H6/H9
+figures, so per the reproducibility contract in `requirements.txt` it must be paired
+with a re-run and a RUN_REGISTRY re-record — a research decision, not a hygiene pass.
+
+**The premise the decision was recorded under is corrected here.** The standing
+rationale said OSV lists "no fixed version" for these advisories and that "no bump
+clears the set." Re-queried 2026-10-18 against `GET https://api.osv.dev/v1/vulns/<id>`:
+
+- 11 OSV ids = **6 distinct advisories**. Five PYSEC ids carry a GHSA twin
+  (`PYSEC-2026-2288`→`GHSA-69w3-r845-3855`, `-2289`→`GHSA-29pf-2h5f-8g72`,
+  `-2290`→`GHSA-fgcw-684q-jj6r`, `-3929`→`GHSA-xrqw-3rrv-vx5w`,
+  `-4174`→`GHSA-x9r9-c232-4q39`); `PYSEC-2025-217` has no GHSA twin.
+- **Every advisory carries a fixed or `last_affected` boundary.** The four that read
+  as "no fix published" in the decision comment do not: `GHSA-x9r9-c232-4q39` /
+  `PYSEC-2026-4174` have `last_affected 5.8.1` (clean at 5.9.0); `PYSEC-2025-217`
+  `last_affected 5.0.0-rc0`; `PYSEC-2026-2290` `last_affected 5.2.0` — and its GHSA
+  twin `GHSA-fgcw-684q-jj6r` states an explicit `fixed 5.5.0`. The decision table was
+  also internally inconsistent: `PYSEC-2026-2290` was bucketed "no fix" while its
+  alias `GHSA-fgcw-684q-jj6r` was listed as fixed in 5.5.0.
+- The union of range events clears at **5.10.0**. Version query (`POST
+  https://api.osv.dev/v1/query`, `transformers`/`PyPI`): `4.57.6 → 11`, `5.9.0 → 2`,
+  `5.10.0 → 0`, `5.20.1 → 0`. So a bump target exists (`transformers>=5.10.0`; PyPI
+  latest 5.20.1), and staying is a **deliberate acceptance of open advisories**, not a
+  case of missing data.
+
+**Why it is acceptable here (reachability).** The only advisory with a live code path
+is the `from_pretrained` RCE (`GHSA-29pf-2h5f-8g72`), which needs an attacker-supplied
+model; Maith loads only `Qwen/Qwen2.5-Coder-0.5B` at a pinned `BASE_MODEL_REVISION`
+plus its own checkpoints. The Trainer `torch.load` advisory (`GHSA-69w3-r845-3855`) is
+neutralised by the `torch==2.14.1` pin. The LightGlue advisory
+(`GHSA-fgcw-684q-jj6r`) is unreachable — no `lightglue` import under `python/`.
+`save_pretrained` runs only on self-produced checkpoints.
+
+**Re-check trigger.** The earlier rationale waited for "OSV to publish a fixed
+release." That trigger has already fired — 5.10.0 is clean. The standing trigger is
+therefore: bump deliberately to `transformers>=5.10.0` **with** the probing re-run and
+figure re-record, when a 5.x-only feature is needed or the reachability assumptions
+above change (loading a non-pinned or third-party model, or dropping the pinned
+`BASE_MODEL_REVISION`).
+
+**Root cause of the recurring false premise (recorded, not fixed here).**
+`tooling/auditor.py` queries the batch endpoint `POST /v1/querybatch`, which returns
+only `{id, modified}` per advisory — no `summary`, no `severity`, no `affected.ranges`.
+The renderer reads `v.get('summary')`, so every advisory row prints blank and no fix
+target is ever visible. That is an auditor rendering defect, not an OSV data gap. Per
+the house rule on not filing mechanical work publicly, it is flagged for the
+janitorial queue rather than filed as an issue.
+
+**Verification:** `grep -n "transformers==" requirements.txt` still shows `4.57.6`
+(pin unchanged); the version-query counts above (`5.10.0 → 0`) are reproducible with a
+`POST https://api.osv.dev/v1/query` for `transformers`/`PyPI`.
+
