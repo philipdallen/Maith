@@ -218,7 +218,7 @@ the representation isn't producing useful semantic embeddings.
 1. `python/extract_retrieval_embeddings.py` — per-variant embedding extraction from
    `input_ids` (fixing the §4.1 bug; does not modify the probing extractor).
 2. `python/build_dependency_groundtruth.py` — parses `Corpus/corpus.jsonl`, emits
-   `datasets/dependency_groundtruth.json` mapping each declaration name → set of
+   `datasets/dependency_groundtruth.json (built by build_dependency_groundtruth.py)` mapping each declaration name → set of
    in-corpus dependency names (per the exclusions in §3.1).
 3. `python/retrieval_eval.py` — loads embeddings + ground truth, computes Recall@k / MRR
    per variant for Mode 1 and Mode 2, emits `runs/h6_retrieval/results.json` with

@@ -31,7 +31,7 @@ design would actually resolve it.
 Before designing the probe, verify what is actually on disk and loadable.
 
 - [ ] List every directory under `runs/` that contains a `checkpoint-final/` subdirectory
-- [ ] For each relevant checkpoint, read its `config.json` and record: `hidden_size`, `vocab_size`, `model_type`
+- [ ] For each relevant checkpoint, read its `config.json (in the checkpoint, not this repo)` and record: `hidden_size`, `vocab_size`, `model_type`
 - [ ] Confirm which checkpoints correspond to which variants (A v1.4.0, C Phase 6, Flat-IR)
 - [ ] Check whether a pretrained-only Qwen2.5-Coder-0.5B (no fine-tuning) checkpoint exists locally, or whether it would need to be downloaded
 - [ ] Record any checkpoint that appears broken or mismatched (wrong vocab_size for its variant)

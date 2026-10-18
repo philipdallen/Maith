@@ -225,7 +225,7 @@ deps = ["DivInvMonoid", "DivInvMonoid.toInv", "DivInvMonoid.toMonoid",
 These are the declarations whose `gen:FullName` tokens appear in `Group.noConfusion`'s
 IR token sequence — the mathematical objects it directly invokes.
 
-Ground truth is stored in `datasets/dependency_groundtruth_eval_to_train.json`:
+Ground truth is stored in `datasets/dependency_groundtruth_eval_to_train.json (built by build_dependency_groundtruth.py)`:
 - 287 eval queries (out of 376 — not every eval declaration has deps in the train pool)
 - Each query has a list of training-split declarations it depends on
 - 287/287 queries have at least one dep in the pool
@@ -537,7 +537,7 @@ into `check_invariants.py` is P0 priority in the
 | Training loss curve | `train_v2_resume.py` | `datasets_perop/train_A.jsonl` | `runs/variant_A_v3_2ep/loss_curve.json` |
 | Perplexity | `evaluate_perplexity()` in `train_v2_resume.py` | `datasets_perop/eval_A.jsonl` | `runs/variant_A_v3_2ep/results.json` |
 | Embeddings | `extract_retrieval_embeddings.py` | `datasets_perop/{train,eval}_A.jsonl` + checkpoint | `runs/retrieval_embeddings/embeddings_A_v3_{train,eval}.pt` |
-| Ground truth deps | `build_dependency_groundtruth.py` | `Corpus/corpus.per_operator.jsonl` | `datasets/dependency_groundtruth_eval_to_train.json` |
+| Ground truth deps | `build_dependency_groundtruth.py` | `Corpus/corpus.per_operator.jsonl` | `datasets/dependency_groundtruth_eval_to_train.json (run-time artifact)` |
 | Retrieval eval | `retrieval_eval.py` | embeddings + ground truth | `runs/h6_retrieval/results_v3_2ep.json` |
 | Linear probe | `probing_task.py` | `runs/probing/representations_A.pt` | `runs/probing/task1_results.json` |
 

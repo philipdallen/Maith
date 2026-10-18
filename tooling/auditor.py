@@ -424,6 +424,16 @@ def _is_cross_repo(text: str, start: int) -> bool:
     return any(name in window for name in SIBLING_REPOS)
 
 
+def _is_cross_repo_path(target: str) -> bool:
+    """A target that *begins* with a sibling repo's name is cross-repo too.
+
+    ``portfolio-ops/ACCESS_AND_IDENTITIES.md`` names a file in a sibling repo;
+    the repo name is inside the reference, so the preceding-prose window in
+    ``_is_cross_repo`` cannot see it.
+    """
+    return any(target.startswith(name + "/") for name in SIBLING_REPOS)
+
+
 def _is_gitignored(root: Path, target: str) -> bool:
     """Paths this repo deliberately does not track.
 
@@ -435,6 +445,11 @@ def _is_gitignored(root: Path, target: str) -> bool:
     return r.returncode == 0
 
 
+# Append-only records state what was true when written; rewriting a path to
+# match today's tree would make them false. Same rationale as STALE_OWNER_EXCLUDE.
+DANGLE_EXCLUDE = ("docs/decisions/", "docs/history/")
+
+
 def check_dangling_doc_refs(root: Path) -> list[Finding]:
     """Backticked repo paths in docs that resolve nowhere.
 
@@ -442,13 +457,15 @@ def check_dangling_doc_refs(root: Path) -> list[Finding]:
     docs-root-relative -- because a bare ``SANDBOX_BASELINE.md`` inside
     ``docs/reference/`` means the sibling file, not a root file.
 
-    Two false-positive classes are suppressed deliberately, because a check that
-    cries wolf gets ignored and is therefore worse than no check:
+    Three false-positive classes are suppressed deliberately, because a check
+    that cries wolf gets ignored and is therefore worse than no check:
 
       * **cross-repo citations** -- ``Maith `EXPERIMENT_MEASUREMENT.md``` names a
         file in a *sibling* repo. It will never resolve here and is not drift.
       * **external / generated paths** -- absolute paths, URLs, and the
         ``NN_thing/NN_thing.py`` shape used by vendored doc examples.
+      * **append-only records** -- ``docs/decisions/`` and ``docs/history/``
+        state what was true when written; see ``DANGLE_EXCLUDE``.
     """
     ref = re.compile(r"`([A-Za-z0-9_./-]+\.(?:md|py|lean|sh|yml|yaml|json|toml|html))`")
 
@@ -469,6 +486,8 @@ def check_dangling_doc_refs(root: Path) -> list[Finding]:
         if ".git/" in str(doc):
             continue
         rel_doc = str(doc.relative_to(root))
+        if rel_doc.startswith(DANGLE_EXCLUDE):
+            continue
         try:
             text = doc.read_text(errors="replace")
         except OSError:
@@ -480,6 +499,8 @@ def check_dangling_doc_refs(root: Path) -> list[Finding]:
             if re.match(r"^\d{2}_", target):        # vendored numbered-dir examples
                 continue
             if _is_cross_repo(text, m.start()):
+                continue
+            if _is_cross_repo_path(target):
                 continue
             candidates = [root / target, doc.parent / target, root / "docs" / target]
             if any(c.exists() for c in candidates):
@@ -535,35 +556,60 @@ COUNT_CLAIM = re.compile(
     re.IGNORECASE)
 
 
+# A count is only comparable when it names its subject. "23 tests" for
+# `test_invariants.py` and "19 tests" for `test_structural_similarity.py` are
+# both correct; the repo's counts are genuinely tiered (9 tier-1 of 38 gates),
+# so comparing bare numbers across documents is a permanent false positive.
+# Each claim is therefore keyed by the backticked file on its line, and a claim
+# that names no subject is skipped -- there is nothing to reconcile it against.
+COUNT_SUBJECT = re.compile(
+    r"`([A-Za-z0-9_./-]+\.(?:py|md|lean|sh|yml|yaml|json|jsonl|toml|html))`")
+
+# Append-only records state what was true when written; rewriting them to match
+# today's count would make them false. Same rationale as STALE_OWNER_EXCLUDE.
+COUNT_DRIFT_EXCLUDE = ("docs/decisions/", "docs/history/")
+
+
 def check_doc_count_drift(root: Path) -> list[Finding]:
-    """'N gates/checks' claims in docs that disagree across documents.
+    """'N gates/checks' claims about the *same subject* that disagree.
 
     The spec calls out the "37 vs 38 vs 9 wired" class explicitly. This reports
-    only disagreements in *prose* about a bare count; it does not attempt to
-    derive ground truth, because for several of these repos the count is
-    genuinely tiered and a single number may be correct in context.
+    disagreements about one named subject, because several of these repos have
+    genuinely tiered counts and a bare number is correct in context -- comparing
+    unrelated numbers would flag the docs forever without a fixable cause.
     """
-    claims: dict[str, dict[int, str]] = {}
+    claims: dict[str, dict[str, dict[int, str]]] = {}
     for doc in list(root.glob("docs/**/*.md")) + list(root.glob("*.md")):
         rel = str(doc.relative_to(root))
+        if rel.startswith(COUNT_DRIFT_EXCLUDE):
+            continue
         try:
             text = doc.read_text(errors="replace")
         except OSError:
             continue
-        for m in COUNT_CLAIM.finditer(text):
-            n = int(m.group(1))
-            kind = m.group(0).split()[-1].lower().rstrip("s")
-            claims.setdefault(kind, {}).setdefault(n, rel)
+        for line in text.splitlines():
+            subject = COUNT_SUBJECT.search(line)
+            if not subject:
+                continue
+            for m in COUNT_CLAIM.finditer(line):
+                n = int(m.group(1))
+                kind = m.group(0).split()[-1].lower().rstrip("s")
+                claims.setdefault(kind, {}).setdefault(
+                    subject.group(1), {}).setdefault(n, rel)
     out = []
-    for kind, bycount in claims.items():
-        if len(bycount) < 2:
+    for kind, bysubject in claims.items():
+        drift = {s: c for s, c in bysubject.items() if len(c) >= 2}
+        if not drift:
             continue
-        listing = "; ".join(f"{n} cited in `{f}`" for n, f in sorted(bycount.items()))
+        listing = "; ".join(
+            f"`{s}`: " + ", ".join(f"{n} in `{f}`" for n, f in sorted(c.items()))
+            for s, c in sorted(drift.items()))
         out.append(Finding(
             "doc-count-drift", CATEGORY_ARCH,
             f"Inconsistent {kind} count across docs",
-            f"Docs cite differing {kind} counts: {listing}. Confirm which is current and "
-            f"reconcile the rest — an inconsistent count is how a stale figure survives.",
+            f"Docs cite differing {kind} counts for the same subject: {listing}. "
+            f"Confirm which is current and reconcile the rest — an inconsistent "
+            f"count is how a stale figure survives.",
             f"{kind}-count"))
     return out
 

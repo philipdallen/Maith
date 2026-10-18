@@ -65,7 +65,7 @@ loss = (1 - λ) * next_token_loss + λ * nt_xent_loss
 - Output: `runs/variant_A_h9/checkpoint-final`
 
 Note: the contrastive auxiliary loss fires on the same minibatch as the next-token
-loss. Pair sampling draws from `h5_pairs_train.json` at each step; unpaired sequences
+loss. Pair sampling draws from `h5_pairs_train.json (run-time artifact)` at each step; unpaired sequences
 contribute next-token loss only (λ * 0 + (1-λ) * ntp_loss).
 
 **Estimated duration:** 10–14 hours (2 epochs, effective batch 8, two forward passes

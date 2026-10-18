@@ -90,7 +90,7 @@ H5 (contrastive objective) or scale (H4/H8).
 ## Files
 
 - Results (clean, Mode 1): `runs/h6_retrieval/results_clean.json`
-- Results (stale/invalid): `runs/h6_retrieval/results_v3_2ep.json`, `results_v3_2ep_mode2.json`
+- Results (stale/invalid): `runs/h6_retrieval/results_v3_2ep.json`, `results_v3_2ep_mode2.json (run-time artifact)`
 - Embeddings (clean): `runs/retrieval_embeddings_clean/`
 - Checkpoint A: `runs/variant_A_v3_2ep/checkpoint-final`
 - Checkpoint B_small_clean: `runs/variant_B_small/checkpoint-final` (retrained DEC-032)
