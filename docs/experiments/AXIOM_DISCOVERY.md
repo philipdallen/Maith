@@ -25,11 +25,16 @@ acting on any step below, note what was verified on 2026-09-15:
 | PleaNP's `#barrier_check` elaborator | **Exists and is real** — `lean/PleaNP/Calculus/BarrierCalculus.lean` (Rung 5). This integration point is valid. |
 
 **Actual blocking dependency:** the circuit-complexity *substrate* for the
-benchmark corpus. `PleaNP.Circuits` is a stub listing planned coverage; the
-lower-bound library is still being built upstream (e.g. PleaNP #72, parity ∉
-AC⁰). Per `BENCHMARK_CORPUS_PLAN.md`, Part 2 (transfer targets) can start now;
-Part 1 (conservativity corpus) is blocked until that library is broad enough to
-pass its own breadth check.
+benchmark corpus. `PleaNP.Circuits` **exists and is materially further along than
+"stub"** — five type-checking modules (`Basic`, `AC0`, `Monotone`,
+`MonotoneApprox`, `MustRefute`) on PleaNP `dev`, verified in
+`docs/AGENT_HANDOFF.md` §"Upstream dependency" and in the reconciliation row
+above. The remaining blocker is *breadth*, not existence: the modules are
+concentrated in one area, and the lower-bound library is still being built
+upstream (e.g. PleaNP #72, parity ∉ AC⁰). Per `BENCHMARK_CORPUS_PLAN.md`
+§Dependencies, Part 2 (transfer targets) can start now; Part 1 (conservativity
+corpus) is blocked until that library is broad enough to pass its own breadth
+check.
 
 ## What we're actually testing
 
