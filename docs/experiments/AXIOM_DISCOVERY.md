@@ -16,7 +16,7 @@ acting on any step below, note what was verified on 2026-09-15:
 
 | Claim in this document | Verified reality |
 |---|---|
-| "Structural similarity search (subgraph isomorphism / graph edit distance / structural fingerprinting) — originally built as a proof-candidate generator (DIRECTION.md). Reused here..." | **Built — this row was stale and is corrected here (2026-09-30).** `python/structural_similarity.py` landed in commit `8514331` (`feat(#28): structural similarity over IR graphs (phase 1)`); issue **#28 is closed** (2026-09-16). Phase 1 supplies structural-fingerprint similarity over IR graphs for candidate discovery (invariant to declaration name, bound-scope strings, positional indices, ordering and polarity; sensitive to row kinds, relation direction/operator, attribute keys/values, operation identity). Still distinct from `Maith/GraphEquivalence.lean`, which is exact *equality* for testing. Phase 2 (candidate dedup against elaborated φ terms) stays open. |
+| "Structural similarity search (subgraph isomorphism / graph edit distance / structural fingerprinting) — originally built as a proof-candidate generator (DIRECTION.md). Reused here..." | **Built — this row was stale and is corrected here (2026-09-30).** `python/structural_similarity.py` landed in commit `8514331` (`feat(#28): structural similarity over IR graphs (phase 1)`); issue **#28 is closed** (2026-09-16). Phase 1 supplies structural-fingerprint similarity over IR graphs for candidate discovery (invariant to declaration name, bound-scope strings, positional indices, ordering and polarity; sensitive to row kinds, relation direction/operator, attribute keys/values, operation identity). Still distinct from `Maith/GraphEquivalence.lean`, which is exact *equality* for testing. Phase 2 (candidate dedup against elaborated φ terms) has a synthetic-fixture implementation (`python/structural_similarity_dedup.py`, #97, 2026-10-19); the real-candidate path stays blocked. |
 | "HOF application support / projection expression parsing — still the highest-priority extraction gaps... remains the actual blocking dependency." | **Implemented and passing.** `Maith/MetaExtractor.lean` handles variable-headed application (`hof`) and `.proj`; `Tests/CorpusPipelineTests.lean::testHOFApplicationExtracts` / `testProjectionExtracts` pass. (The inline code comment in `MetaExtractor.lean` saying they are "NOT covered" is itself stale — a branch immediately below covers them.) This is **not** the blocking dependency; see the actual one below. |
 | "complexitylib / descriptive-complexity (external, once toolchain reconciliation in PleaNP issue #70 lands) — source of the circuit complexity benchmark corpus." | **Superseded.** PleaNP #70 closed 2026-09-13 **rejecting** the `complexitylib` import (it pins `v4.34.0-rc2` + `cslib` vs PleaNP's stable `v4.31.0`), and chose a local `PleaNP.Circuits`. That module now exists and is materially further along than "stub" (five type-checking modules on PleaNP `dev`: `Basic`, `AC0`, `Monotone`, `MonotoneApprox`, `MustRefute`), though it is concentrated in one area. See `BENCHMARK_CORPUS_PLAN.md` §Dependencies. |
 | "the toy-model training loop and harness (moved to `archive/`, not deleted)" | **No `archive/` directory exists.** The toy-model scripts (`train.py`, `train_h5_*`, `train_h9_*`, `train_v2_resume.py`) are still live and referenced by `python/manage.py` and `python/launch_run.py`. The shelving is a *research-direction* decision, not a filesystem move. |
@@ -66,7 +66,12 @@ never the stated target of a search step. See "Non-goals" below.
   literal search mechanism over candidate target structures and candidate φ
   mappings. Note the distinction from `Maith/GraphEquivalence.lean`, which is
   exact *equality* for testing, not similarity ranking. Phase 2 (dedup against
-  elaborated φ terms) remains open and is folded into #28's scope.
+  elaborated φ terms) has a synthetic-fixture implementation
+  (`python/structural_similarity_dedup.py`, issue #97, 2026-10-19): it groups
+  candidate φ specs by the phase-1 fingerprint of their elaborated term, so
+  textually different but structurally identical proposals collapse. The
+  *real-candidate* path stays blocked — it still needs φ to exist as elaborated
+  Lean terms and `Scripts/BuildCorpus.lean`'s module list extended.
 - **HOF application support / projection expression parsing** — **done** (not a
   gap). `MetaExtractor.lean` covers both; `Tests/CorpusPipelineTests.lean`
   passes `testHOFApplicationExtracts` / `testProjectionExtracts`. The load-bearing
@@ -208,7 +213,9 @@ Three things the diagram makes visible that the prose buries:
 1. **#28 (similarity search) landed as phase 1.** The original doc claimed it
    already existed as a proof-candidate generator; it did not, and it has since
    been built (`python/structural_similarity.py`, #28 closed 2026-09-16).
-   Phase 2 (dedup against elaborated φ terms) remains open.
+   Phase 2 (dedup against elaborated φ terms) now has a synthetic-fixture
+   implementation (#97, `python/structural_similarity_dedup.py`); its
+   real-candidate path remains blocked.
 2. **The corpus has two halves with different status.** Part 2 (targets) is
    unblocked; Part 1 (conservativity) is blocked on *breadth*, not existence.
 3. **Gate 4 is downstream of gate 3 by design** — it can never rescue a candidate
@@ -457,7 +464,9 @@ and the dependency in `BENCHMARK_CORPUS_PLAN.md` §Dependencies.
 3. **Structural similarity search** — ✅ **done** (phase 1; `python/structural_similarity.py`,
    issue #28 closed 2026-09-16). This was claimed as existing infrastructure and
    was not, so it was real work; phase 1 now supplies the search mechanism.
-   Phase 2 (candidate dedup against elaborated φ terms) remains open.
+   Phase 2 (candidate dedup against elaborated φ terms) has a synthetic-fixture
+   implementation (#97, `python/structural_similarity_dedup.py`); the
+   real-candidate path remains blocked.
 4. **Implement the shared metaprogramming harness** (spec-in, gates-out). The
    expensive piece; genuinely worth deferring until steps 1–3 land, since it
    consumes their outputs.
@@ -472,7 +481,7 @@ filed as `status:available` tasks with explicit `Blocked by` lineages:
 |---|---|---|
 | 1. Transfer-target list (corpus Part 2) | #26 | steps 1-3 unblocked; formalization blocked on **PleaNP #102** |
 | 2. Candidate ledger + coverage map | #27 | ✅ **done** |
-| 3. Structural similarity search | #28 | ✅ **done** (phase 1); phase 2 (candidate dedup) open |
+| 3. Structural similarity search | #28, #97 | ✅ **done** (phase 1); phase 2 (candidate dedup) synthetic fixtures done, real candidates blocked |
 | 4. Shared metaprogramming harness | #29 | #28 |
 | 5. First candidate batch | #30 | #26, #27, #29 |
 | —. Conservativity corpus (corpus Part 1) | #31 | **blocked** on upstream `PleaNP.Circuits` |
@@ -492,8 +501,11 @@ Plus a **scope extension folded into #28** rather than spun out: once the
 elaborated-term fingerprinting works on Mathlib declarations, point the same
 machinery at each candidate's elaborated φ definition to catch *structurally
 identical but textually different* proposals — which ledger text search misses.
-Two inputs, one mechanism; phase 1 (Mathlib) remains claimable, phase 2 (candidate
-dedup) is blocked on candidates existing as elaborated Lean terms (#29) and on
+The synthetic-fixture half of this landed as #97 (`python/structural_similarity_dedup.py`);
+the real-candidate half remains blocked on candidates existing as elaborated terms.
+Two inputs, one mechanism; phase 1 (Mathlib) is done, phase 2 (candidate dedup)
+has a synthetic-fixture implementation (#97) and its real-candidate path is blocked
+on candidates existing as elaborated Lean terms (#29) and on
 `Scripts/BuildCorpus.lean`'s hardcoded module list being extended.
 
 Each candidate outcome is recorded as a DEC entry (pass and fail alike).

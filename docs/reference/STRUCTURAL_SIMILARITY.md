@@ -112,9 +112,11 @@ families, not noise.
 - **Ledger integration not exercised.** The issue's framing mentions "consuming
   candidate specs from the ledger", but the ledger has 0 candidates, so that path
   cannot be tested. This is phase-1 scope: similarity over corpus graphs.
-- **Phase 2 (candidate dedup) is not here.** It stays blocked per the issue: it
-  needs φ to exist as elaborated Lean terms (#29) and the second corpus's input
-  format defined.
+- **Phase 2 (candidate dedup) is synthetic-fixture only.** `python/structural_similarity_dedup.py`
+  (#97) groups candidate φ specs by the phase-1 fingerprint of their elaborated
+  term, using fixtures in the `axiom-rewrite/candidates.py` record shape. The
+  real-candidate path stays blocked: it needs φ to exist as elaborated Lean terms
+  (#29) and the second corpus's input format defined.
 - **O(n²) for the `--pairs` sweep.** Fine at 4k graphs (the sweep is what produced
   the table above); an index would be needed at 100k+.
 - **`_operation_identity` handles several serialization shapes** (str / dict with
@@ -126,6 +128,11 @@ families, not noise.
 ```bash
 python3 python/test_structural_similarity.py        # 19 tests
 python3 python/test_structural_similarity_guard.py  # 9/9 mutations detected
+
+# phase 2 (candidate dedup over elaborated φ terms, #97)
+python3 python/structural_similarity_dedup.py --fixtures axiom-rewrite/fixtures/dedup
+python3 python/test_structural_similarity_dedup.py         # 9 tests
+python3 python/test_structural_similarity_dedup_guard.py   # 4/4 mutations detected
 ```
 
 The guard disables each invariance in turn and asserts the tests catch it. It found
