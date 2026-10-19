@@ -1,5 +1,15 @@
 # Maith: Semantic IR for Lean Mathematics
 
+## 1) Research Question
+
+Can language models become better theorem provers if trained on a representation of mathematics that exposes semantic structure rather than source syntax?
+
+**Start here** — three entry points into this repository:
+
+- [`docs/README.md`](docs/README.md) — the documentation index; where every other doc is listed.
+- New session or new contributor: [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) → [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md).
+- The current controlled-experiment grid: [`docs/experiments/V2_COMPARISON_MATRIX.md`](docs/experiments/V2_COMPARISON_MATRIX.md).
+
 > **Branch status.** **`main` is the working branch** and the GitHub default — every
 > commit lands here, and it is the branch visitors and all tooling read. `dev` is a
 > legacy name, kept level with `main` and committed to by nobody. If the two ever
@@ -47,13 +57,11 @@
 
 > Read the full background below, or jump to [hypotheses](docs/experiments/HYPOTHESIS_GRID.md) and [experiment design](docs/experiments/EXPERIMENT_DESIGN.md).
 
+**Reading paths.** A **5-minute** pass: this section plus [§1 Research Question](#1-research-question), [§2 Hypothesis](#2-hypothesis), [§3 Why This Matters](#3-why-this-matters), [§4 Approach](#4-approach), and [§7 Current Status / Results](#7-current-status--results). A **30-minute** pass adds the active research direction ([`AXIOM_DISCOVERY`](docs/experiments/AXIOM_DISCOVERY.md)) and the decision record ([`decisions/INDEX.md`](docs/decisions/INDEX.md)).
+
 > **Built with agentic AI tooling.** The author directed agent-based coding workflows to architect, implement, and validate this pipeline — breaking work into task specs, reviewing output, and running the experiments. Commit history on this repo reflects that process.
 
 Maith is a Lean 4 project for extracting a canonical semantic representation of formal mathematics from elaborated Lean terms (`Expr`), then serializing that representation into token sequences for downstream language-model training.
-
-## 1) Research Question
-
-Can language models become better theorem provers if trained on a representation of mathematics that exposes semantic structure rather than source syntax?
 
 ## 2) Hypothesis
 
