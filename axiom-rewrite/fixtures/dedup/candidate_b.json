@@ -1,0 +1,24 @@
+{
+  "candidate_id": "C-DEDUP-B",
+  "target_structure": "Multiplicative monoid on Nat (identity map, renamed binder)",
+  "domain": "synthetic (abstract multiplicative monoid on Nat)",
+  "phi": "def phi (x : Nat) : Nat := id x",
+  "provenance": "DoD fixture for #97: textually different phi, same elaborated term",
+  "gates": {"1": "pass", "2": "pass"},
+  "phi_graph": {
+    "entities": [
+      {"id": {"kind": "term", "index": 3}, "polarity": "neut"},
+      {"id": {"kind": "var", "name": "Nat"}},
+      {"id": {"kind": "bound", "scope": "x"}}
+    ],
+    "attributes": [
+      {"key": "typeclass", "value": "Monoid"}
+    ],
+    "relations": [
+      {"src": {"kind": "bound", "scope": "x"}, "tgt": {"kind": "var", "name": "Nat"}, "op": "hasType"}
+    ],
+    "operations": [
+      {"op": "op:id", "inputs": [{"kind": "bound", "scope": "x"}], "output": {"kind": "bound", "scope": "x"}}
+    ]
+  }
+}
