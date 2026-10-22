@@ -1,0 +1,17 @@
+{
+  "title": "Maith: Semantic IR for Lean mathematics",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Allen, Philip"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "Lean 4",
+    "formal mathematics",
+    "semantic intermediate representation",
+    "theorem proving",
+    "language models"
+  ]
+}

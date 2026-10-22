@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Maith: Semantic IR for Lean mathematics"
+type: software
+authors:
+  - family-names: Allen
+    given-names: Philip
+repository-code: "https://github.com/philipdallen/Maith"
+license: MIT
+keywords:
+  - Lean 4
+  - formal mathematics
+  - semantic intermediate representation
+  - theorem proving
+  - language models

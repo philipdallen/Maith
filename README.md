@@ -551,3 +551,7 @@ tooling/
 ## 13) License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
+
+## Cite this work
+
+Citation metadata is in [CITATION.cff](CITATION.cff); GitHub renders a "Cite this repository" button from it. A matching [.zenodo.json](.zenodo.json) is ready for archival once the owner enables the Zenodo integration.
