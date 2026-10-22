@@ -58,7 +58,8 @@ rather than raw source syntax — improves performance on formal-math tasks.
 
 - **IR version:** `semantic_graph_ir_v2_0_0` (C1 polarity removal, C2 typeclass
   enrichment, C4 GEN module bucketing). Vocab: 601 tokens.
-- **Corpus:** 14 Mathlib modules, ~4,029 extracted declarations → 3,491 train / 388 eval.
+- **Corpus:** 14 Mathlib modules, ~4,029 extracted declarations → clean split 3,375 train / 376 eval
+  (DEC-031/DEC-032; the pre-reset 3,491 / 388 split was retracted for leakage).
 - **Result:** The IR encodes semantic structure (DEC-025: 75.4% linear-probe accuracy vs
   13.6% for shape-only ablation, 62-point gap) but does not improve next-token prediction
   or completion accuracy over size-matched BPE at toy scale (DEC-027). Prediction metrics
