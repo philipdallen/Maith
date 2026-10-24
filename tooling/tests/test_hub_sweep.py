@@ -35,7 +35,7 @@ hub = importlib.util.module_from_spec(spec)
 sys.modules["hub_sweep"] = hub
 spec.loader.exec_module(hub)
 
-NOW = dt.datetime(2026, 9, 19, 12, 0, 0, tzinfo=dt.timezone.utc)
+NOW = dt.datetime(2026, 9, 19, 12, 0, 0, tzinfo=dt.UTC)
 
 
 def iso(minutes_ago: int) -> str:

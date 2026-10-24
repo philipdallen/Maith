@@ -45,6 +45,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from net import safe_urlopen
+
 API = "https://api.github.com"
 STATE_PATH = "status/auditor_state.json"
 STATUS_LOG = "status_log.jsonl"
@@ -147,7 +150,7 @@ WRITE_TRIGGERS = ("push", "pull_request_target", "workflow_run", "issue_comment"
 
 # Top-level `permissions:` -- column 0 only. A step-scoped `permissions:` does not
 # satisfy this: it is the job-level default that decides what the token may do.
-TOP_LEVEL_PERMISSIONS_RE = re.compile(r"^permissions\s*:", re.M)
+TOP_LEVEL_PERMISSIONS_RE = re.compile(r"^permissions\s*:", re.MULTILINE)
 # Untrusted, attacker-influenced expressions. `github.repository` and
 # `secrets.*` are deliberately absent: they are not attacker-controlled, and
 # flagging them would make this check noise.
@@ -176,7 +179,7 @@ class GitHub:
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with safe_urlopen(req, timeout=45) as resp:
             raw = resp.read().decode()
             return json.loads(raw) if raw.strip() else {}
 
@@ -196,7 +199,7 @@ class GitHub:
             if self.token:
                 headers_probe["Authorization"] = f"Bearer {self.token}"
             req = urllib.request.Request(url, headers=headers_probe)
-            with urllib.request.urlopen(req, timeout=45) as resp:
+            with safe_urlopen(req, timeout=45) as resp:
                 data = json.loads(resp.read().decode())
                 link = resp.headers.get("Link", "")
             if not isinstance(data, list):
@@ -215,7 +218,8 @@ class GitHub:
 # --------------------------------------------------------------------------
 
 def git(args: list[str], cwd: Path) -> str:
-    p = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
+    p = subprocess.run(["git"] + args, check=False, cwd=cwd,
+                       capture_output=True, text=True)
     return p.stdout if p.returncode == 0 else ""
 
 
@@ -251,7 +255,7 @@ def commits_between(root: Path, old: str, new: str) -> list[dict]:
 # --------------------------------------------------------------------------
 
 class Finding:
-    __slots__ = ("check", "category", "title", "body", "subject")
+    __slots__ = ("body", "category", "check", "subject", "title")
 
     def __init__(self, check: str, category: str, title: str, body: str, subject: str):
         self.check = check            # stable id, used in the dedup signature
@@ -334,8 +338,8 @@ def check_stale_todos(root: Path) -> list[Finding]:
             ts = linemap.get(str(i))
             if not ts:
                 continue
-            age = (dt.datetime.now(dt.timezone.utc)
-                   - dt.datetime.fromtimestamp(int(ts), dt.timezone.utc)).days
+            age = (dt.datetime.now(dt.UTC)
+                   - dt.datetime.fromtimestamp(int(ts), dt.UTC)).days
             if age >= TODO_MAX_AGE_DAYS:
                 candidates.append((rel, age, f"{m.group(1)} at line {i}: {line.strip()[:90]}"))
     candidates.sort(key=lambda c: -c[1])
@@ -389,7 +393,8 @@ def check_gate_health(root: Path) -> list[Finding]:
             "gate-runner")]
 
     cmd, label = entry
-    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=1800)
+    proc = subprocess.run(cmd, check=False, cwd=root, capture_output=True,
+                          text=True, timeout=1800)
     if proc.returncode == 0:
         return []
 
@@ -399,7 +404,7 @@ def check_gate_health(root: Path) -> list[Finding]:
         f"Gate runner failed: {label}",
         f"`{' '.join(cmd)}` exited {proc.returncode}.\n\n```\n"
         + "\n".join(tail) + "\n```\n\nThis is the repo's own gate suite; its failure is the "
-        f"most load-bearing finding this audit can produce.",
+        "most load-bearing finding this audit can produce.",
         f"gate-runner:{label}")]
 
 
@@ -441,7 +446,8 @@ def _is_gitignored(root: Path, target: str) -> bool:
     produced at run time and gitignored by design -- the correct thing to write,
     not drift. Reporting it would bury the real findings.
     """
-    r = subprocess.run(["git", "check-ignore", "-q", "--", target], cwd=root)
+    r = subprocess.run(["git", "check-ignore", "-q", "--", target],
+                       check=False, cwd=root)
     return r.returncode == 0
 
 
@@ -908,13 +914,13 @@ def check_workflow_hardening(root: Path) -> list[Finding]:
                     f"attacker-influenced values directly into a shell command:\n\n"
                     + "\n".join(f"  - `{e}`" for e in examples[:8])
                     + "\n\nA PR title, branch name, or workflow input is text an outside "
-                    f"contributor chooses. Substituted into a `run:` block it is shell "
-                    f"source, i.e. code execution -- quoting does not help, because the "
-                    f"substitution happens before the shell parses the line.\n\n"
-                    f"Fix: pass it through `env:` and reference `\"$VAR\"` quoted, so the "
-                    f"value is data rather than source. (This check only inspects `run:` "
-                    f"blocks for exactly that reason -- `env:` and `with:` usages are the "
-                    f"remedy, not a finding.)",
+                    "contributor chooses. Substituted into a `run:` block it is shell "
+                    "source, i.e. code execution -- quoting does not help, because the "
+                    "substitution happens before the shell parses the line.\n\n"
+                    "Fix: pass it through `env:` and reference `\"$VAR\"` quoted, so the "
+                    "value is data rather than source. (This check only inspects `run:` "
+                    "blocks for exactly that reason -- `env:` and `with:` usages are the "
+                    "remedy, not a finding.)",
                     f"{rel}:interpolation"))
 
         if CHECKOUT_RE.search(text) and PR_HEAD_REF_RE.search(text):
@@ -963,7 +969,7 @@ def osv_query(packages: list[tuple[str, str]]) -> dict:
     req = urllib.request.Request(
         OSV_API, data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json", "User-Agent": "repo-auditor"})
-    with urllib.request.urlopen(req, timeout=45) as resp:
+    with safe_urlopen(req, timeout=45) as resp:
         return json.loads(resp.read().decode())
 
 
@@ -1409,7 +1415,7 @@ def main(argv: list[str] | None = None) -> int:
     status_root = Path(args.status_root).resolve() if args.status_root else root
     token = os.environ.get(args.token_env) or None
     gh = GitHub(token)
-    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    now = dt.datetime.now(dt.UTC).replace(microsecond=0)
     when = now.isoformat().replace("+00:00", "Z")
 
     sha = head_sha(root)

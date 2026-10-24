@@ -731,7 +731,8 @@ def test_json_mode_writes_nothing_and_is_parseable(tmp_path):
     (root / "extra.txt").write_text("x\n")
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "x"], cwd=root, check=True)
-    import contextlib, io
+    import contextlib
+    import io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = aud.main(["--repo", "o/r", "--root", str(root), "--json"])
@@ -807,7 +808,7 @@ def test_find_tooling_drift_treats_missing_as_drift():
 def test_check_tooling_drift_reports_api_outage():
     # Offline-safe: stub the fetcher directly (no pytest monkeypatch here).
     orig = aud._tooling_blob_shas
-    aud._tooling_blob_shas = lambda: {}
+    aud._tooling_blob_shas = dict
     try:
         findings = aud.check_tooling_drift(Path("."))
     finally:
@@ -844,7 +845,7 @@ def test_self_test_cleans_up_on_failure(tmp_path):
     # must still be removed. Patch REGISTRY itself: it holds direct function
     # references, so rebinding the module attribute would not take effect.
     orig_reg = aud.REGISTRY
-    stub = lambda root: []  # noqa: E731
+    stub = lambda root: []
     aud.REGISTRY = [stub if fn.__name__ == "check_dangling_doc_refs" else fn
                     for fn in orig_reg]
     orig_shas = aud._tooling_blob_shas

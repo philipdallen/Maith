@@ -1,0 +1,28 @@
+# Ruff configuration for ephapse (issue #124).
+#
+# The scope is deliberately narrow: the critical-error rules only -- syntax
+# errors (`E9`) and undefined names (`F63`, `F7`, `F82`) -- not a style ruleset.
+#
+# Measured on `main` at 2026-10-18 under ruff 0.17.1: a bare `ruff check .`
+# (full default selection) reports 114 findings; the historical default
+# `E4,E7,E9,F` reports 54. They are almost all style or unsafe-fix suggestions,
+# and they concentrate in two places a CI gate must not edit -- the frozen
+# `experiments/` records, and `tooling/` files that are byte-identical across
+# Maith, PleaNP and ephapse (AGENTS.md section "Three-repo shared code"). Gating
+# on the full set would make the workflow red on arrival and force a shared-code
+# divergence to clear it.
+#
+# The critical set is green today and is not vacuous: an injected undefined name
+# (`F821`) or a syntax error turns the step red. Widening this selection is a
+# deliberate decision that comes with a fix for the findings above, not a
+# default -- see ephapse #124.
+#
+# `target-version` is pinned to match the `ubuntu-latest` runner so the rule set
+# does not drift with the interpreter. It cannot go below py312: `auditor.py`
+# uses backslashes inside an f-string expression (PEP 701), which is a syntax
+# error before 3.12.
+
+target-version = "py312"
+
+[lint]
+select = ["E9", "F63", "F7", "F82"]
