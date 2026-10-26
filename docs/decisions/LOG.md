@@ -3514,3 +3514,117 @@ janitorial queue rather than filed as an issue.
 (pin unchanged); the version-query counts above (`5.10.0 → 0`) are reproducible with a
 `POST https://api.osv.dev/v1/query` for `transformers`/`PyPI`.
 
+
+### DEC-060 — Gate 6 (#34): two of four scope questions decided — providers named, gate 6 recorded as a non-blocking signal (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active (partial — questions 1-2 of 4; reversible by the maintainer)
+**Scope:** issue #34, `docs/experiments/AXIOM_DISCOVERY.md` §"Validation pipeline",
+`axiom-rewrite/README.md` §"Two rules enforced on append". Records decisions only:
+no gate, no ledger code, no candidate, and no experiment is touched. Gate 6 itself
+remains unbuilt and **#34 stays `status:blocked-needs-input`** pending questions 3-4.
+
+**Origin.** #34 was filed by DEC-041 with four open scope questions and an explicit
+maintainer instruction to confirm scope *before* implementation. A triage on
+2026-10-25 decided two of the four by **maintainer-delegated judgment** (reversible
+by the maintainer); the two remaining questions are cost/volume cap and raw
+prompt/response retention. Recorded here so the decisions are durable and the issue
+is not re-triaged a fourth time on the same two points.
+
+**Decision 1 — providers (was question 1).** `GOOGLE_API_KEY` (Google) and
+`NVIDIA_BUILD_KEY` (NVIDIA) count as **two genuinely distinct providers**; **no
+fourth is required**. `OPENHANDS_API_KEY` is **not a model provider** and does not
+count toward independence. This satisfies the body's own bar ("2+ genuinely
+distinct external models, not persona-prompted variants of one model") with the
+credentials actually present in this environment.
+
+**Decision 2 — does gate 6 gate `reusable`? (was question 2).** **No. Gate 6 is a
+non-blocking triage signal, not a hard gate.** `reusable` still requires gate 5
+only. Rationale, following the body's own language ("earns attention", "cheap early
+reject before human review"): making gate 6 admission-controlled would change
+`reusable`'s semantics retroactively, which nothing in the design asks for. The
+ledger therefore records gate 6 as a **signal field**, with a **deliberate carve-out
+from the ordered-gate validation** (`axiom-rewrite/README.md` enforces "a candidate
+cannot pass a later gate while an earlier one failed"; a signal is not a gate, so it
+must not participate in that ordering check).
+
+**Remaining for the maintainer (questions 3-4, unchanged and still blocking
+implementation):**
+
+- **3. Cost / volume cap per run.** 2+ API calls per gate-5 survivor — unbounded, or
+  a per-run budget? Volume is zero today (no candidate has reached gate 5), but the
+  cap is to be set before it is not.
+- **4. Raw prompt/response retention.** Whether the raw prompt and response text is
+  stored, which carries cost and privacy implications.
+
+**Sequencing unchanged.** Per the maintainer's 2026-09-16 note, do not claim #34
+before #28-#30 are underway; #30 is itself still `status:blocked-needs-input`.
+
+**Verification:** `grep -n "DEC-060" docs/decisions/LOG.md` shows this entry;
+`git diff --stat -- axiom-rewrite/ docs/experiments/AXIOM_DISCOVERY.md` is empty
+(no code, ledger, or gate touched); `gh issue view 34 --json labels` still shows
+`status:blocked-needs-input` with no `status:available`.
+
+
+### DEC-061 — #33: prior-failure retrieval — family schema and prompt payload decided; issue stays unstarted (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active (answers recorded — reversible by the maintainer)
+**Scope:** issue #33, and DEC-041's #33 row. No gate, ledger code, candidate, or
+experiment is touched. #33's label is left **unchanged** (`needs-triage`), per the
+maintainer's own instruction in the same comment.
+
+**Origin.** #33 was filed by DEC-041 with three open questions and a sequencing
+instruction. A triage on 2026-10-25 (posted 2026-10-26T01:36:18Z) answered the two
+*design* questions by maintainer-delegated judgment; the third ("no-op until
+failures exist") is not a question but a state. Recorded here so the answers are
+durable and #33 is not re-triaged on the same two points.
+
+**Decision 1 — family schema (was question 1).** Prefer a **new `structure_family`
+field** over a structure-to-family mapping. Rationale: the ledger is append-only
+JSONL, which tolerates a new field with no migration; a mapping would need a
+maintained taxonomy that is itself ongoing work. (This is the same trade the
+`domain` free-string limit already carries — `axiom-rewrite/README.md` §Known
+limits — so the field, not the map, is the smaller debt.)
+
+**Decision 2 — what feeds the prompt (was question 2).** Feed **counts grouped by
+`failure_mode`, plus the cited gate.** Not the full prior φ texts. Rationale: full
+φ texts bloat the proposal prompt, and the live-check value is in the *pattern*
+(which failure modes recur for this family/sub-domain), not the text of any one
+attempt.
+
+**Two stale premises in the same comment, corrected here.** They matter because
+they change what #33 is actually blocked on:
+
+- **"#29 (does not exist)" is false.** #29 closed 2026-09-16 (`status:done`);
+  `axiom-rewrite/harness.py` exists (19,537 bytes) with `candidate_from_run()` and
+  `record()`, and gates 1-3 are kernel-discharged (DEC-050). The gate-time half of
+  #33's extension is buildable against a real component, not a hypothetical one.
+- **"#28 phase 2 (blocked)" is stale.** #28 closed `status:done`; the phase-2
+  dedup work (#97) is closed `status:done`; only the ledger wire-in (#114) remains
+  and it is `status:available`. Phase 2 is not blocked.
+
+**Two premises that DO hold, unchanged:**
+
+- **Concurrency control.** The ledger is append-only JSONL with **no locking**
+  (`axiom-rewrite/README.md` §Known limits, single-writer assumption). A *live*
+  check implies concurrent readers, so it needs a lock or an atomic
+  compare-and-append, not just a read.
+- **`--per-operator` extraction is required for any live signal** (DEC-039;
+  `python/structural_similarity.py` enforces it via `assert_per_operator_corpus`).
+  In default `module` mode distinct operators collapse to `GEN_*`, so a live check
+  would emit false "same" *and* false "different" verdicts — worse than no check.
+
+**Why #33 stays unstarted — not promoted to `status:available`:**
+
+1. **Sequencing.** The maintainer's 2026-09-16 note forbids claiming #33 before
+   #28-#30 are underway; **#30 is still `status:blocked-needs-input`**.
+2. **No-op.** The ledger is empty (`axiom-rewrite/candidates.jsonl`, 0 bytes), so
+   there is nothing to retrieve — question 3's state, still true.
+3. **Enum dependency not yet done.** #32 (the `failure_mode` enum) is claimed by a
+   sibling run this same session and is not yet `status:done`.
+
+**Verification:** `grep -n "DEC-061" docs/decisions/LOG.md` shows this entry;
+`git diff --stat -- axiom-rewrite/` is empty (no code, ledger, or gate touched);
+`gh issue view 33 --json labels` still shows `needs-triage` with no
+`status:available`; `wc -c axiom-rewrite/candidates.jsonl` is `0`.

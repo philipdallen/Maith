@@ -44,16 +44,20 @@ One JSON object per line in `candidates.jsonl`:
 | `gates` | object | `{"1": "pass", "2": "fail", …}`. Gates are recorded independently because the pipeline is ordered and admission-controlled: a candidate that fails gate 2 never reaches gate 3, and the ledger should show that rather than collapse to one pass/fail. |
 | `compression` | object or null | Proof-term size or IR node count before/after. **Only valid when gate 3 passed.** |
 | `reusable` | bool | Promoted past the breadth check. **Only valid when gate 5 passed.** |
+| `failure_mode` | string or null | Fixed enum naming the mode of the **first failed gate** — `not_homomorphism` (1), `degenerate_collapse` (2), `target_too_weak` (3), `no_replication` (5). **Required on failure, null otherwise.** Gate 4 is non-failing and so has no mode. |
 | `note` | string | Free text. |
 | `status` | string (derived) | `failed_gate_N`, `passed_gate_N`, or `proposed`. Written for convenience; recomputed on read. |
 
 Gate numbers (`AXIOM_DISCOVERY.md` §Validation pipeline): **1** homomorphism,
 **2** faithfulness, **3** transfer, **4** compression accounting, **5** breadth.
+Gates 1-3 and 5 are admission control and each carries a `failure_mode`; gate 4 is
+bookkeeping and is **declared non-failing** (issue #32) — `gate 4 = fail` is
+rejected by the schema.
 
-## Two rules enforced on append, not merely documented
+## Rules enforced on append, not merely documented
 
-`AXIOM_DISCOVERY.md` states two rules that a naive ledger would let you violate
-silently. Both are **enforced in code** and a violating record is **rejected with a
+`AXIOM_DISCOVERY.md` states rules that a naive ledger would let you violate
+silently. All are **enforced in code** and a violating record is **rejected with a
 nonzero exit rather than written**:
 
 1. **Compression requires gate 3.** Only a candidate that survived the transfer
@@ -61,6 +65,12 @@ nonzero exit rather than written**:
    as evidence — the exact failure the doc's non-goals warn against.
 2. **`reusable` requires gate 5.** A one-off hit is logged but is not validated
    infrastructure until it replicates across a second, unrelated sub-domain.
+3. **`failure_mode` is required on failure and fixed** (issue #32). It names the
+   first failed gate's mode, must be one of the four enum values, and is rejected
+   if absent on failure, present without a failure, or mismatched to the failed
+   gate. Free text is refused so failures stay groupable across candidates.
+4. **Gate 4 is non-failing.** `gate 4 = fail` is rejected: compression accounting
+   is bookkeeping on a result that already exists, so it has no failure mode.
 
 Plus one structural check: **the pipeline is ordered** — a candidate cannot pass a
 later gate while an earlier one failed.

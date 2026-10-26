@@ -115,7 +115,9 @@ def test_gate4_refuses_when_gate3_fails():
     assert g[1] == "pass" and g[2] == "pass", f"this fixture must reach gate 3: {g}"
     assert g[3] == "fail", f"gate 3 is deliberately false here: {g}"
     gate4 = next(r for r in results if r.gate == 4)
-    assert gate4.outcome == "fail", gate4
+    # Gate 4 is non-failing (#32): it withholds a compression number, it does not
+    # reject the candidate. The candidate is rejected by gate 3.
+    assert gate4.outcome == "skip", gate4
     assert "refused" in gate4.obligation, gate4.obligation
     assert "no number emitted" in gate4.obligation, (
         "the refusal must be OBSERVABLE, not implied: " + gate4.obligation)
@@ -128,7 +130,7 @@ def test_gate4_refuses_when_gate3_absent():
         H.Spec.load(SPECS / "fixture_unit_collapse.json"),
         [H.GateResult(1, "pass", "x"), H.GateResult(2, "fail", "y")],
     )
-    assert unit.outcome == "fail", unit
+    assert unit.outcome == "skip", unit
     assert "refused" in unit.obligation, unit.obligation
     print("PASS: test_gate4_refuses_when_gate3_absent")
 
@@ -220,6 +222,8 @@ def test_run_records_to_ledger_with_the_ledgers_own_rules():
             f"compression recorded for a candidate that failed gate 3: {rec['compression']}"
         assert rec["reusable"] is False, "marked reusable without gate 5"
         assert rec["status"] == "failed_gate_2", rec["status"]
+        # The bridge must populate the fixed failure enum (#32), not leave it null.
+        assert rec["failure_mode"] == "degenerate_collapse", rec["failure_mode"]
     print("PASS: test_run_records_to_ledger_with_the_ledgers_own_rules")
 
 

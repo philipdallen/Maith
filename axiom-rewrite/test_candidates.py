@@ -20,23 +20,35 @@ sys.path.insert(0, str(HERE))
 
 from candidates import (  # noqa: E402
     Candidate, LedgerError, append_candidate, read_ledger, next_candidate_id,
-    coverage, DEFAULT_LEDGER,
+    coverage, DEFAULT_LEDGER, FAILURE_MODES, VALID_FAILURE_MODES,
 )
 
 REPO = HERE.parent
 SCRIPT = HERE / "candidates.py"
 
 
-def _mk(cid="C-001", gates=None, compression=None, reusable=False, domain="decl_a"):
+def _mk(cid="C-001", gates=None, compression=None, reusable=False, domain="decl_a",
+        failure_mode="derive"):
+    """Build a candidate, deriving `failure_mode` from the first failed gate.
+
+    `failure_mode="derive"` (the default) mirrors what the CLI does, so tests that
+    predate #32 keep working. Pass an explicit value (including `None`) to test
+    the failure_mode rules themselves.
+    """
+    gates = gates or {}
+    if failure_mode == "derive":
+        failed = sorted(g for g, o in gates.items() if o == "fail")
+        failure_mode = FAILURE_MODES.get(failed[0]) if failed else None
     return Candidate(
         candidate_id=cid,
         target_structure="Group",
         domain=domain,
         phi="def phi := ...",
         provenance="homomorphic-first heuristic",
-        gates=gates or {},
+        gates=gates,
         compression=compression,
         reusable=reusable,
+        failure_mode=failure_mode,
     )
 
 
@@ -159,6 +171,116 @@ def test_invalid_gate_and_outcome_rejected():
             continue
         raise AssertionError(f"invalid gates accepted: {bad}")
     print("PASS: test_invalid_gate_and_outcome_rejected")
+
+
+# ---------------------------------------------------------------------------
+# failure_mode enum (issue #32)
+# ---------------------------------------------------------------------------
+
+def test_failure_mode_required_on_failure():
+    """A failed gate with no failure_mode must be REJECTED (else it drifts to
+    free text / omission, which is the whole reason the field is an enum)."""
+    try:
+        _mk(gates={1: "fail"}, failure_mode=None).validate()
+    except LedgerError:
+        print("PASS: test_failure_mode_required_on_failure")
+        return
+    raise AssertionError("a failed candidate was accepted with no failure_mode")
+
+
+def test_failure_mode_keyed_to_first_failed_gate():
+    """The mode names the FIRST failure: the pipeline is admission-controlled."""
+    assert _mk(gates={2: "fail"}, failure_mode=None).expected_failure_mode == \
+        "degenerate_collapse"
+    assert _mk(gates={3: "fail"}, failure_mode=None).expected_failure_mode == \
+        "target_too_weak"
+    assert _mk(gates={5: "fail"}, failure_mode=None).expected_failure_mode == \
+        "no_replication"
+    assert _mk(gates={1: "fail"}, failure_mode=None).expected_failure_mode == \
+        "not_homomorphism"
+    print("PASS: test_failure_mode_keyed_to_first_failed_gate")
+
+
+def test_failure_mode_mismatch_rejected():
+    """A mode that disagrees with the first failed gate must be REJECTED."""
+    try:
+        _mk(gates={3: "fail"}, failure_mode="not_homomorphism").validate()
+    except LedgerError:
+        print("PASS: test_failure_mode_mismatch_rejected")
+        return
+    raise AssertionError("a failure_mode inconsistent with the failed gate was accepted")
+
+
+def test_failure_mode_forbidden_without_failure():
+    """A passing candidate must NOT carry a failure_mode."""
+    try:
+        _mk(gates={1: "pass", 2: "pass", 3: "pass"},
+            failure_mode="target_too_weak").validate()
+    except LedgerError:
+        print("PASS: test_failure_mode_forbidden_without_failure")
+        return
+    raise AssertionError("failure_mode accepted on a candidate with no failed gate")
+
+
+def test_failure_mode_free_text_rejected():
+    """Only the fixed enum values are allowed — free text defeats groupability."""
+    try:
+        _mk(gates={2: "fail"}, failure_mode="it just didn't work").validate()
+    except LedgerError:
+        print("PASS: test_failure_mode_free_text_rejected")
+        return
+    raise AssertionError("free-text failure_mode was accepted")
+
+
+def test_gate4_is_non_failing():
+    """Gate 4 is bookkeeping and must never be recorded as `fail` (#32)."""
+    try:
+        _mk(gates={1: "pass", 2: "pass", 3: "pass", 4: "fail"}).validate()
+    except LedgerError:
+        print("PASS: test_gate4_is_non_failing")
+        return
+    raise AssertionError("gate 4 accepted as `fail` despite being non-failing")
+
+
+def test_failure_mode_round_trips():
+    with tempfile.TemporaryDirectory() as tmp:
+        p = Path(tmp) / "candidates.jsonl"
+        append_candidate(p, _mk("C-001", gates={1: "pass", 2: "fail"}))
+        back = read_ledger(p)
+        assert back[0].failure_mode == "degenerate_collapse", back[0].failure_mode
+    print("PASS: test_failure_mode_round_trips")
+
+
+def test_cli_derives_failure_mode_on_failure():
+    """The CLI records the mode without the caller naming it (it is derivable),
+    and stats groups by it — the observable payoff of the enum."""
+    with tempfile.TemporaryDirectory() as tmp:
+        ledger = Path(tmp) / "c.jsonl"
+
+        def run(*args):
+            return subprocess.run(
+                [sys.executable, str(SCRIPT), "--ledger", str(ledger), *args],
+                capture_output=True, text=True, cwd=str(REPO),
+            )
+
+        r = run("add", "--target-structure", "Group", "--domain", "d", "--phi", "p",
+                "--provenance", "prov", "--gate", "1=pass", "--gate", "2=fail")
+        assert r.returncode == 0, r.stderr
+        rec = json.loads(ledger.read_text().strip())
+        assert rec["failure_mode"] == "degenerate_collapse", rec
+
+        r = run("list")
+        assert "degenerate_collapse" in r.stdout, r.stdout
+
+        r = run("stats")
+        assert r.returncode == 0 and "degenerate_collapse: 1" in r.stdout, r.stdout
+
+        # An explicit mode that contradicts the failed gate is rejected.
+        r = run("add", "--target-structure", "Group", "--domain", "d", "--phi", "p",
+                "--provenance", "prov", "--gate", "3=fail",
+                "--failure-mode", "not_homomorphism")
+        assert r.returncode != 0 and "REJECTED" in r.stderr, (r.returncode, r.stderr)
+    print("PASS: test_cli_derives_failure_mode_on_failure")
 
 
 def test_required_fields():
@@ -286,6 +408,14 @@ def main():
         test_reusable_allowed_after_gate5,
         test_ordered_pipeline_enforced,
         test_invalid_gate_and_outcome_rejected,
+        test_failure_mode_required_on_failure,
+        test_failure_mode_keyed_to_first_failed_gate,
+        test_failure_mode_mismatch_rejected,
+        test_failure_mode_forbidden_without_failure,
+        test_failure_mode_free_text_rejected,
+        test_gate4_is_non_failing,
+        test_failure_mode_round_trips,
+        test_cli_derives_failure_mode_on_failure,
         test_required_fields,
         test_failed_rejected_by_cli_nonzero,
         test_coverage_counts_and_unattempted,
