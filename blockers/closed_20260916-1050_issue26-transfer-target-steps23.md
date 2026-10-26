@@ -1,6 +1,9 @@
 # Blocker: #26 — transfer-target list needs maintainer steps 2-3 (and step 4 is blocked upstream)
 
 **Opened:** 2026-09-16T11:0x UTC by openhands `run=20260916-1050-e8a2`
+**Closed:** 2026-10-26 UTC by openhands `run=20261026-0137-k7m2` — all three gaps
+resolved or re-scoped; see the "Net" line below and the resolution table. Step 4
+(formalization) is carried forward as #119, which is blocked by #26.
 **Issue:** Maith #26 (`status:blocked-needs-input`)
 **Deliverable so far:** `docs/experiments/TRANSFER_TARGETS.md` (DEC-042)
 
@@ -120,10 +123,27 @@ against the wrong substrate, which is the failure mode the integrity gates exist
 catch. #26's DoD explicitly permits "a recorded reason it could not be formalized",
 so the honest record is the correct output.
 
+## Resolution (2026-10-26, `run=20261026-0137-k7m2`)
+
+Measured against the current tree and upstream state:
+
+| Gap | State on 2026-10-26 |
+|---|---|
+| 1 (filtering) | Resolved 2026-10-07 (DEC-057). `TRANSFER_TARGETS.md` §"Filtering decision (step 2) — SIGNED OFF 2026-10-07" names the decision owner (maintainer) and freezes the classification. |
+| 2 (cross-check) | Out of scope, closed as a blocker 2026-09-16; no second model available. Recorded, not silently dropped. |
+| 3 (formalization) | Upstream *packaging* blocker gone: PleaNP #102 closed 2026-09-16; PleaNP #72 closed 2026-09-25 (consolidated into PleaNP #63, itself closed 2026-10-23). The remaining item is the **DEC-043 deferred decision** on whether Maith adds `require PleaNP` permanently — carried forward as **#119** (blocked by #26). |
+
+The one *new* consequence — substrate for T7 (communication) / T9 / T10 — is filed
+separately (#98 scoping note → #115 T7 spec) and does not block #26.
+
+Step 4 is **not** part of #26: #26's scope decision deferred it out, and #26's DoD
+accepts "a recorded reason it could not be formalized". #119 owns it.
+
 ## Not done / next agent should not redo
 
 - Do **not** re-run the step-1 research; it is complete and dated.
-- Do **not** claim #26 again until at least Gaps 1-2 are resolved; it is
-  `status:blocked-needs-input`.
+- Do **not** re-open #26 for step 4; it is #119 (blocked by #26).
+- Do **not** claim #119 until its `NEEDS:` line is answered — it is
+  `status:blocked-needs-input` on the DEC-043 dependency decision.
 - The Part 2 work already unblocks nothing downstream on its own: #30 (first
   candidate batch) needs #26 **and** #27 **and** #29, and no φ has been proposed yet.
