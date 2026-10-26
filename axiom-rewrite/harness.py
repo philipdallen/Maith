@@ -197,17 +197,25 @@ class Harness:
         rather than beside it: a compression number attached to a candidate that never
         transferred would be bookkeeping presented as evidence.
 
-        The refusal is made **observable** — the detail says explicitly that no
-        number was emitted — so "gate 4 refuses" is testable rather than implied.
+        Gate 4 is **declared non-failing** (issue #32): it either permits a
+        compression number or withholds one. Withholding is `skip`, never `fail`,
+        because compression accounting is bookkeeping on a result that already
+        exists — a candidate is not *rejected* for lacking a compression number,
+        it is rejected by gate 3. Emitting `fail` here would invent a failure mode
+        gate 4 does not have, and the ledger now rejects `fail` at gate 4.
+
+        The refusal is still made **observable** — the detail says explicitly that
+        no number was emitted — so "gate 4 refuses" is testable rather than implied.
         """
         by_gate = {r.gate: r for r in prior}
         transfer = by_gate.get(3)
         if transfer is None or transfer.outcome != "pass":
             return GateResult(
-                4, "fail", "(compression refused — no number emitted)",
+                4, "skip", "(compression refused — no number emitted)",
                 "gate 3 (transfer) did not pass, so NO compression number is "
                 "recorded. Compression is bookkeeping on a result that exists; "
-                "emitting one here would present bookkeeping as evidence.")
+                "emitting one here would present bookkeeping as evidence. Gate 4 "
+                "is non-failing, so this is `skip`, not `fail`.")
         return GateResult(
             4, "pass", "(compression permitted)",
             "gate 3 passed, so compression accounting may be recorded for this "
@@ -422,10 +430,11 @@ def candidate_from_run(spec: Spec, results: list[GateResult],
     # module scope would couple the harness to the ledger for users who only run
     # specs.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from candidates import Candidate  # noqa: E402
+    from candidates import Candidate, FAILURE_MODES  # noqa: E402
 
     by_gate = {r.gate: r.outcome for r in results}
     transfer_passed = by_gate.get(3) == "pass"
+    failed = sorted(g for g, o in by_gate.items() if o == "fail")
     return Candidate(
         candidate_id=spec.candidate_id,
         target_structure=spec.target_structure,
@@ -435,6 +444,7 @@ def candidate_from_run(spec: Spec, results: list[GateResult],
         gates=dict(by_gate),
         compression=compression if transfer_passed else None,
         reusable=(by_gate.get(5) == "pass"),
+        failure_mode=FAILURE_MODES.get(failed[0]) if failed else None,
         note=(spec.note + (f" | harness: {r.detail}" if (r := next(
             (x for x in results if x.outcome == "fail"), None)) else "")).strip(" |"),
     )

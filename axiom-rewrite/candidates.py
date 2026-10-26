@@ -68,6 +68,21 @@ GATE_NAMES = {
     5: "breadth",
 }
 
+# Failure modes (issue #32): a *fixed* enum, not free text, so failures are
+# groupable across candidates. Each value is keyed to the gate that produces it,
+# and a record carries the mode of its FIRST failed gate (`failed_gate` is the
+# min of failed gates — the pipeline is admission-controlled, so later failures
+# are never reached). Gate 4 has no mode on purpose: compression accounting is
+# bookkeeping on a result that already exists, so gate 4 is declared
+# explicitly non-failing (see `validate`).
+FAILURE_MODES = {
+    1: "not_homomorphism",
+    2: "degenerate_collapse",
+    3: "target_too_weak",
+    5: "no_replication",
+}
+VALID_FAILURE_MODES = tuple(FAILURE_MODES.values())
+
 
 class LedgerError(Exception):
     """A record that cannot be accepted (as opposed to a usage error)."""
@@ -92,6 +107,7 @@ class Candidate:
     compression: Optional[dict] = None
     reusable: bool = False
     note: str = ""
+    failure_mode: Optional[str] = None
 
     # -- derived ------------------------------------------------------------
     @property
@@ -112,6 +128,11 @@ class Candidate:
         """Lowest gate with outcome `fail`, or None."""
         failed = [g for g, o in self.gates.items() if o == "fail"]
         return min(failed) if failed else None
+
+    @property
+    def expected_failure_mode(self) -> Optional[str]:
+        """The mode implied by the first failed gate, or None if nothing failed."""
+        return FAILURE_MODES.get(self.failed_gate) if self.failed_gate else None
 
     # -- validation ---------------------------------------------------------
     def validate(self) -> None:
@@ -158,6 +179,44 @@ class Candidate:
                         f"failed — the pipeline is ordered and admission-controlled"
                     )
 
+        # Rule 3: gate 4 (compression accounting) is declared explicitly
+        # non-failing. It is bookkeeping on a result that already exists, so it
+        # has no failure mode and the schema must not permit `fail` for it
+        # (issue #32 decision).
+        if self.gates.get(4) == "fail":
+            raise LedgerError(
+                "gate 4 (compression) recorded as `fail`, but gate 4 is declared "
+                "explicitly non-failing — compression accounting is bookkeeping on "
+                "a result that already exists, so it carries no failure_mode "
+                "(issue #32)"
+            )
+
+        # Rule 4: `failure_mode` is required whenever a gate failed, forbidden
+        # otherwise, and must be the fixed mode of the FIRST failed gate. One
+        # guard, because the mode is fully determined by the first failure: a
+        # missing value, a free-text value, and a value naming the wrong gate are
+        # all "not the expected mode" (issue #32).
+        expected = self.expected_failure_mode
+        if expected is None:
+            if self.failure_mode is not None:
+                raise LedgerError(
+                    f"failure_mode {self.failure_mode!r} recorded, but no gate "
+                    "failed — failure_mode is required only on failure (issue #32)"
+                )
+        elif self.failure_mode != expected:
+            if self.failure_mode is None:
+                raise LedgerError(
+                    f"gate {self.failed_gate} failed but failure_mode is missing — "
+                    f"it is required on failure and must be {expected!r} "
+                    "(issue #32)"
+                )
+            raise LedgerError(
+                f"failure_mode {self.failure_mode!r} does not match the first failed "
+                f"gate {self.failed_gate} (expected {expected!r}) — the pipeline is "
+                "admission-controlled, so the first failure is the meaningful one, "
+                "and the enum is fixed so modes stay groupable (issue #32)"
+            )
+
     def to_json(self) -> dict:
         d = asdict(self)
         # JSON object keys must be strings; keep gates as "1".."5" on disk.
@@ -177,6 +236,7 @@ class Candidate:
             compression=d.get("compression"),
             reusable=bool(d.get("reusable", False)),
             note=d.get("note", ""),
+            failure_mode=d.get("failure_mode"),
         )
 
 
@@ -284,6 +344,14 @@ def cmd_add(args) -> int:
         # Explicit and early: better than a confusing validation error later.
         print("error: --reusable requires --gate 5=pass", file=sys.stderr)
         return 1
+    # On failure the mode is determined by the first failed gate, so derive it
+    # rather than making the caller repeat a fact the record already encodes.
+    # An explicit --failure-mode still wins, and a mismatch is rejected below.
+    failure_mode = args.failure_mode
+    if failure_mode is None:
+        failed = [g for g, o in gates.items() if o == "fail"]
+        if failed:
+            failure_mode = FAILURE_MODES.get(min(failed))
     cand = Candidate(
         candidate_id=args.id or next_candidate_id(existing),
         target_structure=args.target_structure,
@@ -294,6 +362,7 @@ def cmd_add(args) -> int:
         compression=json.loads(args.compression) if args.compression else None,
         reusable=bool(args.reusable),
         note=args.note or "",
+        failure_mode=failure_mode,
     )
     try:
         append_candidate(path, cand)
@@ -319,6 +388,8 @@ def cmd_list(args) -> int:
         print(f"{c.candidate_id}  [{c.status}]  {c.target_structure}")
         print(f"    domain: {c.domain}")
         print(f"    gates:  {gates}")
+        if c.failure_mode:
+            print(f"    failure_mode: {c.failure_mode} (gate {c.failed_gate})")
         if c.compression is not None:
             print(f"    compression: {c.compression}")
         if c.reusable:
@@ -365,6 +436,14 @@ def cmd_stats(args) -> int:
     print(f"reusable: {sum(1 for c in cands if c.reusable)}"
           f" (gate 5 survivors — promoted structures)")
     print(f"with compression recorded: {sum(1 for c in cands if c.compression is not None)}")
+    by_mode: dict[str, int] = {}
+    for c in cands:
+        if c.failure_mode:
+            by_mode[c.failure_mode] = by_mode.get(c.failure_mode, 0) + 1
+    if by_mode:
+        print("failure modes (groupable — the point of the enum):")
+        for m in sorted(by_mode, key=lambda k: (-by_mode[k], k)):
+            print(f"  {m}: {by_mode[m]}")
     return 0
 
 
@@ -388,6 +467,9 @@ def main() -> int:
     p_add.add_argument("--compression", default=None,
                        help="JSON, e.g. '{\"nodes_before\":10,\"nodes_after\":7}' "
                             "(only valid when gate 3 passed)")
+    p_add.add_argument("--failure-mode", default=None, choices=VALID_FAILURE_MODES,
+                       help="fixed failure enum; required on failure (derived from "
+                            "the first failed gate when omitted)")
     p_add.add_argument("--reusable", action="store_true",
                        help="promote to reusable (requires --gate 5=pass)")
     p_add.add_argument("--note", default="")

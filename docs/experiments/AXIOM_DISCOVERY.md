@@ -249,6 +249,22 @@ Only candidates surviving step 3 get a compression number recorded. Only
 candidates surviving step 5 get promoted to "reusable" and considered for
 integration into the shared corpus.
 
+Steps 1-3 are admission control and each has a **failure mode**; step 4 is
+bookkeeping and is therefore **declared non-failing** — it either permits a
+compression number or withholds one, and a candidate is rejected by step 3, not
+by step 4. The ledger records the failure mode of the first failed gate as a
+**fixed enum** (issue #32), so failures stay groupable across candidates rather
+than drifting into free text:
+
+| First failed gate | `failure_mode` |
+|---|---|
+| 1. Homomorphism | `not_homomorphism` |
+| 2. Faithfulness | `degenerate_collapse` |
+| 3. Transfer | `target_too_weak` |
+| 5. Breadth | `no_replication` |
+
+(Gate 4 has no mode, and `gate 4 = fail` is rejected by the schema.)
+
 ## Tracking candidates and search space
 
 - **Candidate ledger** (`axiom-rewrite/candidates.jsonl`) — **built** (issue #27;
@@ -257,7 +273,8 @@ integration into the shared corpus.
   failed candidates are kept, not deleted, so the search history itself becomes data.
   Two gate rules from §"Validation pipeline" are **enforced on append** (compression
   requires gate 3; `reusable` requires gate 5), and validated by mutation-tested
-  fixtures.
+  fixtures. A failed record also carries a **fixed `failure_mode`** enum keyed to its
+  first failed gate, and gate 4 is non-failing (issue #32) — both enforced on append.
 - **Coverage map over the benchmark domain** — **built** (issue #27), *derived* from
   the ledger rather than stored, so it cannot drift: per benchmark declaration, how
   many candidate φ's have been tried and with what outcome. Passing the full
