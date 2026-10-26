@@ -3514,3 +3514,53 @@ janitorial queue rather than filed as an issue.
 (pin unchanged); the version-query counts above (`5.10.0 → 0`) are reproducible with a
 `POST https://api.osv.dev/v1/query` for `transformers`/`PyPI`.
 
+
+### DEC-060 — Gate 6 (#34): two of four scope questions decided — providers named, gate 6 recorded as a non-blocking signal (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active (partial — questions 1-2 of 4; reversible by the maintainer)
+**Scope:** issue #34, `docs/experiments/AXIOM_DISCOVERY.md` §"Validation pipeline",
+`axiom-rewrite/README.md` §"Two rules enforced on append". Records decisions only:
+no gate, no ledger code, no candidate, and no experiment is touched. Gate 6 itself
+remains unbuilt and **#34 stays `status:blocked-needs-input`** pending questions 3-4.
+
+**Origin.** #34 was filed by DEC-041 with four open scope questions and an explicit
+maintainer instruction to confirm scope *before* implementation. A triage on
+2026-10-25 decided two of the four by **maintainer-delegated judgment** (reversible
+by the maintainer); the two remaining questions are cost/volume cap and raw
+prompt/response retention. Recorded here so the decisions are durable and the issue
+is not re-triaged a fourth time on the same two points.
+
+**Decision 1 — providers (was question 1).** `GOOGLE_API_KEY` (Google) and
+`NVIDIA_BUILD_KEY` (NVIDIA) count as **two genuinely distinct providers**; **no
+fourth is required**. `OPENHANDS_API_KEY` is **not a model provider** and does not
+count toward independence. This satisfies the body's own bar ("2+ genuinely
+distinct external models, not persona-prompted variants of one model") with the
+credentials actually present in this environment.
+
+**Decision 2 — does gate 6 gate `reusable`? (was question 2).** **No. Gate 6 is a
+non-blocking triage signal, not a hard gate.** `reusable` still requires gate 5
+only. Rationale, following the body's own language ("earns attention", "cheap early
+reject before human review"): making gate 6 admission-controlled would change
+`reusable`'s semantics retroactively, which nothing in the design asks for. The
+ledger therefore records gate 6 as a **signal field**, with a **deliberate carve-out
+from the ordered-gate validation** (`axiom-rewrite/README.md` enforces "a candidate
+cannot pass a later gate while an earlier one failed"; a signal is not a gate, so it
+must not participate in that ordering check).
+
+**Remaining for the maintainer (questions 3-4, unchanged and still blocking
+implementation):**
+
+- **3. Cost / volume cap per run.** 2+ API calls per gate-5 survivor — unbounded, or
+  a per-run budget? Volume is zero today (no candidate has reached gate 5), but the
+  cap is to be set before it is not.
+- **4. Raw prompt/response retention.** Whether the raw prompt and response text is
+  stored, which carries cost and privacy implications.
+
+**Sequencing unchanged.** Per the maintainer's 2026-09-16 note, do not claim #34
+before #28-#30 are underway; #30 is itself still `status:blocked-needs-input`.
+
+**Verification:** `grep -n "DEC-060" docs/decisions/LOG.md` shows this entry;
+`git diff --stat -- axiom-rewrite/ docs/experiments/AXIOM_DISCOVERY.md` is empty
+(no code, ledger, or gate touched); `gh issue view 34 --json labels` still shows
+`status:blocked-needs-input` with no `status:available`.

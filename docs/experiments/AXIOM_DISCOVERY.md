@@ -495,7 +495,7 @@ deliberately not allowed to reorder the queue above.
 |---|---|
 | #32 | `failure_mode` on the ledger — a fixed enum, not free text, so gate 1-5 failures are groupable (`not_homomorphism`, `degenerate_collapse`, `target_too_weak`, `no_replication`). |
 | #33 | Before proposing, retrieve prior failures for the same (structure-family, sub-domain) pair and feed their `failure_mode` into the proposal prompt — so a dead end is not re-proposed under a new presentation. Depends on #32. |
-| #34 | **Gate 6** — for gate-5 survivors, ask 2+ genuinely distinct external models with mirrored for/against prompts; convergent "unremarkable" is a cheap early reject. Scope-bound to a small script (prompt template + 2-3 API calls), confirmed before implementation. |
+| #34 | **Gate 6** — for gate-5 survivors, ask 2+ genuinely distinct external models with mirrored for/against prompts; convergent "unremarkable" is a cheap early reject. Scope-bound to a small script (prompt template + 2-3 API calls), confirmed before implementation. **Two of four scope questions decided 2026-10-26 (DEC-060):** providers are `GOOGLE_API_KEY` + `NVIDIA_BUILD_KEY` (no fourth; `OPENHANDS_API_KEY` is not a model provider), and gate 6 is a **non-blocking signal**, not a gate on `reusable`. Cost cap and prompt/response retention remain open. |
 
 Plus a **scope extension folded into #28** rather than spun out: once the
 elaborated-term fingerprinting works on Mathlib declarations, point the same
