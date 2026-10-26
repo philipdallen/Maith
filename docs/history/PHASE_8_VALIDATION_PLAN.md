@@ -10,7 +10,7 @@
 > Phase 8's pass means the IR extraction/encode/decode/decompile pipeline is
 > lossless, so v2 changes to the token stream (C4 GEN bucketing) are safe to train on.
 
-**Phases can run out of order** ‚ÄĒ 8b, 8c, and 8d are independent OpenHands Lean tasks and
+**Phases can run out of order** — 8b, 8c, and 8d are independent OpenHands Lean tasks and
 do not depend on each other. 8a-ii (corpus re-extraction) requires a local terminal with
 `lake` available. Fix 3 is gated on 8a-ii + 8b; Fix 4 is gated on all phases.
 
@@ -22,61 +22,61 @@ Fix 3 does not happen until Phases 8a-ii and 8b pass. Fix 4 does not happen unti
 
 `validate_roundtrip.py` reports 200/200 pass, but that result is narrower than it sounds:
 
-- It tests **Python decoder ‚ÜĒ Python encoder only** ‚ÄĒ a self-consistency check, not a pipeline check
+- It tests **Python decoder ↔ Python encoder only** — a self-consistency check, not a pipeline check
 - It was run against the **v1.2.0 corpus** (4-module, 2,554 examples with polarity tokens). v1.3.0 format removed polarity tokens and the script has not been updated
-- It has **no test of `MetaExtractor.lean`** ‚ÄĒ the extraction step where information could be silently lost at the Lean `Expr` level
-- The **decompiler (`Maith/Transpiler.lean`) is broken** ‚ÄĒ it produces structural output that does not parse as valid Lean (known failures: `Eq` emission malformed, universe syntax invalid, `‚ąÄ` keyword missing)
+- It has **no test of `MetaExtractor.lean`** — the extraction step where information could be silently lost at the Lean `Expr` level
+- The **decompiler (`Maith/Transpiler.lean`) is broken** — it produces structural output that does not parse as valid Lean (known failures: `Eq` emission malformed, universe syntax invalid, `∀` keyword missing)
 
 The full pipeline has two directions that must both be validated:
 
 ```
 Lean Expr
-    ‚Ēā  MetaExtractor.lean (forward)         ‚Üź Phase 8c tests this
-    ‚Ėľ
+    │  MetaExtractor.lean (forward)         ← Phase 8c tests this
+    ▼
 IR Graph
-    ‚Ēā  Encoder.lean (forward)               ‚Üź Phase 8b tests this (Lean-native)
-    ‚Ėľ
+    │  Encoder.lean (forward)               ← Phase 8b tests this (Lean-native)
+    ▼
 Token sequence
-    ‚Ēā  Decoder.lean (reverse)               ‚Üź Phase 8b tests this (Lean-native)
-    ‚Ėľ
+    │  Decoder.lean (reverse)               ← Phase 8b tests this (Lean-native)
+    ▼
 IR Graph
-    ‚Ēā  Transpiler.lean (reverse)            ‚Üź Phase 8d fixes and tests this
-    ‚Ėľ
+    │  Transpiler.lean (reverse)            ← Phase 8d fixes and tests this
+    ▼
 Lean syntax (parseable)
 ```
 
-Currently only the middle two steps (Encoder ‚ÜĒ Decoder) are tested, and only via a Python reimplementation.
+Currently only the middle two steps (Encoder ↔ Decoder) are tested, and only via a Python reimplementation.
 
 ---
 
-## Phase 8a ‚ÄĒ Fix Python round-trip for v1.3.0
+## Phase 8a — Fix Python round-trip for v1.3.0
 
 **Owner:** Kit  
-**Status:** ‚úÖ Complete (2026-08-03)  
-**Estimated effort:** 2‚Äď3 hours  
-**Blocked by:** Nothing ‚ÄĒ start immediately
+**Status:** ✅ Complete (2026-08-03)  
+**Estimated effort:** 2–3 hours  
+**Blocked by:** Nothing — start immediately
 
 ### What's broken
 
-`validate_roundtrip.py` expects polarity tokens (`neut`) after every E/A/R/O row (v1.2.0 format). v1.3.0 removed polarity tokens. The script misparsed the v1.3.0 corpus silently ‚ÄĒ the 200/200 pass result was against the old 4-module v1.2.0 `corpus.jsonl`.
+`validate_roundtrip.py` expects polarity tokens (`neut`) after every E/A/R/O row (v1.2.0 format). v1.3.0 removed polarity tokens. The script misparsed the v1.3.0 corpus silently — the 200/200 pass result was against the old 4-module v1.2.0 `corpus.jsonl`.
 
 Specific broken lines:
 - `decode_tokens()` reads `tokens[i + 2]` as polarity for E rows (line ~98)
-- `reencode_graph()` appends polarity to every row (lines 143‚Äď151)
-- No encoder version detection ‚ÄĒ script assumes v1.2.0 unconditionally
+- `reencode_graph()` appends polarity to every row (lines 143–151)
+- No encoder version detection — script assumes v1.2.0 unconditionally
 
 ### Changes required
 
 1. Update `decode_tokens()` to handle v1.3.0 format (no polarity after E/A/R/O rows)
 2. Update `reencode_graph()` to emit v1.3.0 format (no polarity tokens)
-3. Add encoder version detection ‚ÄĒ read `encoderVersion` from corpus or manifest; branch for v1.2.0 vs v1.3.0 so historical corpora still validate
+3. Add encoder version detection — read `encoderVersion` from corpus or manifest; branch for v1.2.0 vs v1.3.0 so historical corpora still validate
 4. Increase default sample from 200 to all examples (`--all` as default)
 
 ### Pass criterion
 
-‚úÖ 3,901/3,901 examples round-trip on the full v1.3.0 corpus  
-‚úÖ Zero polarity tokens in re-encoded output  
-‚úÖ v1.2.0 corpus (corpus.jsonl.bak) still passes under v1.2.0 mode
+✅ 3,901/3,901 examples round-trip on the full v1.3.0 corpus  
+✅ Zero polarity tokens in re-encoded output  
+✅ v1.2.0 corpus (corpus.jsonl.bak) still passes under v1.2.0 mode
 
 ### Files to change
 
@@ -84,26 +84,26 @@ Specific broken lines:
 
 ---
 
-## Phase 8b ‚ÄĒ Lean-native Encoder ‚ÜĒ Decoder round-trip
+## Phase 8b — Lean-native Encoder ↔ Decoder round-trip
 
 **Owner:** OpenHands  
-**Status:** ūüü° Ready to start (8a complete; 8a-ii can run in parallel)  
-**Estimated effort:** 1‚Äď2 days  
-**Blocked by:** Nothing ‚ÄĒ can start now
+**Status:** 🟡 Ready to start (8a complete; 8a-ii can run in parallel)  
+**Estimated effort:** 1–2 days  
+**Blocked by:** Nothing — can start now
 
 ### OpenHands task brief
 
-> **Repo:** `https://github.com/allenpd728/Maith` ‚ÄĒ branch `kit/dev`  
+> **Repo:** `https://github.com/allenpd728/Maith` — branch `kit/dev`  
 > **You only have access to the repo. No local files outside it.**
 >
 > The Maith corpus (`Corpus/corpus.jsonl`) stores IR graph token sequences. The current
-> Python round-trip validator (`python/validate_roundtrip.py`) tests Python decoder ‚ÜĒ
-> Python encoder only ‚ÄĒ it does not exercise the actual Lean `Encoder.lean` or `Decoder.lean`.
+> Python round-trip validator (`python/validate_roundtrip.py`) tests Python decoder ↔
+> Python encoder only — it does not exercise the actual Lean `Encoder.lean` or `Decoder.lean`.
 > Your task is to build a Lean-native round-trip test suite.
 >
 > **Step 1:** Read `Maith/Encoder.lean` and `Maith/Decoder.lean` in full to understand the
 > token grammar and the encode/decode API. Also read `docs/reference/ENCODER_FORMAT.md` for the
-> v1.2.0 token format spec (the corpus is currently v1.2.0 ‚ÄĒ polarity tokens are present).
+> v1.2.0 token format spec (the corpus is currently v1.2.0 — polarity tokens are present).
 >
 > **Step 2:** Create `Tests/RoundTripTests.lean`. For each test example:
 > 1. Hard-code the stored token sequence from `Corpus/corpus.jsonl` (pick 20+ examples
@@ -111,7 +111,7 @@ Specific broken lines:
 >    input arities, and examples with both FVAR and BVAR binders)
 > 2. Call `Decoder.decode` (or equivalent) to parse the token list into a graph
 > 3. Call `Encoder.encodeGraph` to re-encode the graph back to tokens
-> 4. Assert the re-encoded token list equals the original ‚ÄĒ use `#guard` or a named test
+> 4. Assert the re-encoded token list equals the original — use `#guard` or a named test
 >
 > **Step 3:** Wire `Tests/RoundTripTests.lean` into `lakefile.lean` so it runs via `lake test`.
 >
@@ -138,15 +138,15 @@ Test coverage requirements:
 - Minimum 500 examples from `Corpus/corpus.jsonl`
 - Must cover all row types: E rows, A rows (typeclass + sort + literal), R rows (eq), O rows (various arities)
 - Must cover both FVAR (forall) and BVAR (lambda) binder kinds
-- Must include at least 10 examples with IO arity ‚Č• 3
+- Must include at least 10 examples with IO arity ≥ 3
 
 Any mismatch must report: example name, token position, expected token, actual token, surrounding context (5 tokens either side).
 
 ### Pass criterion
 
-‚úÖ 500/500 Lean-native round-trips pass  
-‚úÖ No mismatch between `Encoder.lean` output and stored corpus tokens  
-‚úÖ Test suite runnable via `lake test`
+✅ 500/500 Lean-native round-trips pass  
+✅ No mismatch between `Encoder.lean` output and stored corpus tokens  
+✅ Test suite runnable via `lake test`
 
 ### Files to create/change
 
@@ -156,21 +156,21 @@ Any mismatch must report: example name, token position, expected token, actual t
 ### Do not touch
 
 - `Maith/MetaExtractor.lean`
-- `Maith/Encoder.lean` (read-only unless a bug is found; if a bug is found, document it and fix it ‚ÄĒ do not silently work around it)
+- `Maith/Encoder.lean` (read-only unless a bug is found; if a bug is found, document it and fix it — do not silently work around it)
 - `Corpus/corpus.jsonl`
 
 ---
 
-## Phase 8c ‚ÄĒ IR graph faithfulness: Expr extraction preserves semantic content
+## Phase 8c — IR graph faithfulness: Expr extraction preserves semantic content
 
 **Owner:** OpenHands  
-**Status:** ‚úÖ Complete (2026-08-05) ‚ÄĒ 20/20 ExtractionFaithfulnessTests pass  
-**Estimated effort:** 2‚Äď3 days  
+**Status:** ✅ Complete (2026-08-05) — 20/20 ExtractionFaithfulnessTests pass  
+**Estimated effort:** 2–3 days  
 **Completed:** commit 52c0847 on `openhands/phase-8c`, merged into `kit/dev`
 
 ### OpenHands task brief
 
-> **Repo:** `https://github.com/allenpd728/Maith` ‚ÄĒ branch `kit/dev`  
+> **Repo:** `https://github.com/allenpd728/Maith` — branch `kit/dev`  
 > **You only have access to the repo. No local files outside it.**
 >
 > `Maith/MetaExtractor.lean` extracts IR graphs from Lean `Expr` trees. There is currently
@@ -189,8 +189,8 @@ Any mismatch must report: example name, token position, expected token, actual t
 >
 > | Declaration | Properties to assert |
 > |---|---|
-> | `AddZero.mk` | Entity count ‚Č• 4; at least one A row with key `typeclass`; at least one R row with op `eq` |
-> | `AddZero.mk._flat_ctor` | Entity count ‚Č• 4; graph structurally different from `AddZero.mk` (different entity count or different R row count) |
+> | `AddZero.mk` | Entity count ≥ 4; at least one A row with key `typeclass`; at least one R row with op `eq` |
+> | `AddZero.mk._flat_ctor` | Entity count ≥ 4; graph structurally different from `AddZero.mk` (different entity count or different R row count) |
 > | `mul_assoc` | At least one O row with 3 inputs (arity 3) |
 > | `one_mul` | At least one O row with 2 inputs |
 >
@@ -205,7 +205,7 @@ Any mismatch must report: example name, token position, expected token, actual t
 
 ### What's missing
 
-No test confirms that `MetaExtractor.lean` captures all semantically relevant information from the Lean `Expr`. Silent losses here ‚ÄĒ dropped universe levels, collapsed implicit arguments, missed binder annotations ‚ÄĒ would not be caught by any current test.
+No test confirms that `MetaExtractor.lean` captures all semantically relevant information from the Lean `Expr`. Silent losses here — dropped universe levels, collapsed implicit arguments, missed binder annotations — would not be caught by any current test.
 
 ### What to build
 
@@ -225,7 +225,7 @@ Golden declarations to cover (chosen for known structural properties):
 | `AddCancelMonoid.ctorIdx` | Literal A row (`Lean.Literal.natVal 0`); sort A row |
 
 For each golden declaration verify:
-- Entity count matches expected (¬Ī known TERM_MANY overflow exceptions)
+- Entity count matches expected (± known TERM_MANY overflow exceptions)
 - All expected `gen:` tokens present in O rows
 - R rows capture all type equalities (count and op type)
 - A rows capture all typeclass constraints and sort levels
@@ -234,10 +234,10 @@ For each golden declaration verify:
 
 ### Pass criterion
 
-‚úÖ All golden declarations extract with expected graph structure  
-‚úÖ `casesOn` vs `recOn` graphs confirmed structurally distinct  
-‚úÖ `mk` vs `mk._flat_ctor` graphs confirmed structurally distinct  
-‚úÖ Any deviation from expected structure is documented as either (a) known acceptable simplification with justification, or (b) a bug to fix
+✅ All golden declarations extract with expected graph structure  
+✅ `casesOn` vs `recOn` graphs confirmed structurally distinct  
+✅ `mk` vs `mk._flat_ctor` graphs confirmed structurally distinct  
+✅ Any deviation from expected structure is documented as either (a) known acceptable simplification with justification, or (b) a bug to fix
 
 ### Files to create/change
 
@@ -246,19 +246,19 @@ For each golden declaration verify:
 
 ---
 
-## Phase 8d ‚ÄĒ Fix decompiler to produce parseable Lean output
+## Phase 8d — Fix decompiler to produce parseable Lean output
 
 **Owner:** OpenHands  
-**Status:** ‚úÖ Complete (2026-08-05) ‚ÄĒ Eq emission, universe levels, ‚ąÄ keyword all fixed; 4 new decompiler tests pass  
+**Status:** ✅ Complete (2026-08-05) — Eq emission, universe levels, ∀ keyword all fixed; 4 new decompiler tests pass  
 **Estimated effort:** 1 week  
 **Completed:** commit 2ab10a5 on `openhands/phase-8d`, merged into `kit/dev`
 
 ### OpenHands task brief
 
-> **Repo:** `https://github.com/allenpd728/Maith` ‚ÄĒ branch `kit/dev`  
+> **Repo:** `https://github.com/allenpd728/Maith` — branch `kit/dev`  
 > **You only have access to the repo. No local files outside it.**
 >
-> `Maith/Transpiler.lean` implements `decompileGraph` ‚ÄĒ a graph‚ÜíLean-syntax decompiler.
+> `Maith/Transpiler.lean` implements `decompileGraph` — a graph→Lean-syntax decompiler.
 > It currently produces structural output that does not parse as valid Lean. Your task
 > is to fix the three known failures so decompiled output is at minimum parseable.
 >
@@ -266,22 +266,22 @@ For each golden declaration verify:
 > The handover doc lists the three known failures explicitly.
 >
 > **Step 2:** Fix the three known failures in `Maith/Transpiler.lean`:
-> 1. **`Eq` emission malformed** ‚ÄĒ `Eq.G` is not valid Lean. Fix the equality term constructor.
-> 2. **Universe level syntax invalid** ‚ÄĒ emit `Type.{u_1}` / `Sort.{u+1}` correctly.
-> 3. **`‚ąÄ` keyword missing** ‚ÄĒ forall binders must be emitted with the `‚ąÄ` keyword.
+> 1. **`Eq` emission malformed** — `Eq.G` is not valid Lean. Fix the equality term constructor.
+> 2. **Universe level syntax invalid** — emit `Type.{u_1}` / `Sort.{u+1}` correctly.
+> 3. **`∀` keyword missing** — forall binders must be emitted with the `∀` keyword.
 >
 > **Step 3:** Add or extend `Tests/DecompilerTests.lean`. For each of these 5 golden
 > declarations, run `decompileGraph` and assert the output string:
 > - Does not contain `Eq.G` (known malformed fragment)
-> - Contains `‚ąÄ` if the declaration has forall binders
+> - Contains `∀` if the declaration has forall binders
 > - Is non-empty
-> - (Stretch goal) Can be parsed by `Lean.Parser.runParserCategory` ‚ÄĒ attempt this but
+> - (Stretch goal) Can be parsed by `Lean.Parser.runParserCategory` — attempt this but
 >   do not block the task on it if Lean's parser API is hard to invoke in a test context
 >
 > Golden declarations: `AddZero.mk`, `mul_assoc`, `one_mul`, `AddCancelMonoid.ctorIdx`,
 > `LeftCancelSemigroup.toIsLeftCancelMul`
 >
-> **Step 4:** Update `docs/reference/DECOMPILER_HANDOVER.md` ‚ÄĒ mark resolved issues as fixed,
+> **Step 4:** Update `docs/reference/DECOMPILER_HANDOVER.md` — mark resolved issues as fixed,
 > document any remaining known issues clearly.
 >
 > **Do not touch:** `Maith/MetaExtractor.lean`, `Maith/Encoder.lean`, `Corpus/corpus.jsonl`,
@@ -289,27 +289,27 @@ For each golden declaration verify:
 
 ### Why this matters
 
-A working decompiler is the only way to confirm the IR is **complete** ‚ÄĒ that the original Lean expression could be reconstructed from the graph alone. Without it, passing round-trip tests only confirm self-consistency, not completeness. If the extractor drops information, the encoder/decoder round-trip still passes (the dropped information isn't there to fail on).
+A working decompiler is the only way to confirm the IR is **complete** — that the original Lean expression could be reconstructed from the graph alone. Without it, passing round-trip tests only confirm self-consistency, not completeness. If the extractor drops information, the encoder/decoder round-trip still passes (the dropped information isn't there to fail on).
 
 ### Known failures (from `docs/reference/DECOMPILER_HANDOVER.md`)
 
-1. **`Eq` emission is malformed** ‚ÄĒ `Eq.G` is not valid Lean syntax
-2. **Universe level syntax is invalid** ‚ÄĒ current output doesn't match Lean's `Type.{u}` / `Sort.{u+1}` forms
-3. **`forall` binders emitted without `‚ąÄ` keyword** ‚ÄĒ produces unparseable output
+1. **`Eq` emission is malformed** — `Eq.G` is not valid Lean syntax
+2. **Universe level syntax is invalid** — current output doesn't match Lean's `Type.{u}` / `Sort.{u+1}` forms
+3. **`forall` binders emitted without `∀` keyword** — produces unparseable output
 
 ### What to build
 
 1. Fix the three known failures in `Maith/Transpiler.lean`
 2. Add `Tests/DecompilerTests.lean` that runs `decompileGraph` on 10 golden examples and verifies the output parses in Lean without syntax errors
-3. The bar is **parseable** ‚ÄĒ Lean can read the output without syntax errors. Full re-elaboration (type-checking) is not required for Phase 8d.
+3. The bar is **parseable** — Lean can read the output without syntax errors. Full re-elaboration (type-checking) is not required for Phase 8d.
 
-Golden examples for decompiler testing: same set as Phase 8c (`AddZero.mk`, `mul_assoc`, `one_mul`, `AddCancelMonoid.ctorIdx` ‚ÄĒ simple enough to decompile, complex enough to exercise all row types).
+Golden examples for decompiler testing: same set as Phase 8c (`AddZero.mk`, `mul_assoc`, `one_mul`, `AddCancelMonoid.ctorIdx` — simple enough to decompile, complex enough to exercise all row types).
 
 ### Pass criterion
 
-‚úÖ 10/10 golden declarations decompile to output that parses in Lean without syntax errors  
-‚úÖ Test runnable via `lake test`  
-‚úÖ `DECOMPILER_HANDOVER.md` updated to reflect resolved vs remaining issues
+✅ 10/10 golden declarations decompile to output that parses in Lean without syntax errors  
+✅ Test runnable via `lake test`  
+✅ `DECOMPILER_HANDOVER.md` updated to reflect resolved vs remaining issues
 
 ### Files to change
 
@@ -325,21 +325,21 @@ Phases can run out of order. 8b, 8c, 8d are independent and can be handed to Ope
 immediately. 8a-ii requires a local terminal with `lake` + Lean build environment.
 
 ```
-Phase 8a   Python round-trip v1.3.0 format   Kit            ‚úÖ Done
-    ‚Ēā
-Phase 8a-ii  Re-extract corpus (lake build)  Local terminal  ūüĒī Needs terminal
-    ‚Ēā
-    ‚Ēú‚ĒÄ‚ĒÄ‚Ė∂ Phase 8b  Lean Encoder ‚ÜĒ Decoder    OpenHands #1    ūüü° Can start now
-    ‚Ēā
-    ‚Ēú‚ĒÄ‚ĒÄ‚Ė∂ Phase 8c  Expr extraction faithful  OpenHands #2    ‚úÖ Done (52c0847)
-    ‚Ēā
-    ‚ĒĒ‚ĒÄ‚ĒÄ‚Ė∂ Phase 8d  Decompiler fix            OpenHands #3    ‚úÖ Done (2ab10a5)
-             ‚Ēā
-             ‚Ėľ (all above complete)
-         Fix 3: IO marker simplification    Kit             ūüĒī Blocked on 8a-ii + 8b
-             ‚Ēā
-             ‚Ėľ
-         Fix 4: Type-role prefixes          Kit             ūüĒī Blocked on all phases
+Phase 8a   Python round-trip v1.3.0 format   Kit            ✅ Done
+    │
+Phase 8a-ii  Re-extract corpus (lake build)  Local terminal  🔴 Needs terminal
+    │
+    ├──▶ Phase 8b  Lean Encoder ↔ Decoder    OpenHands #1    🟡 Can start now
+    │
+    ├──▶ Phase 8c  Expr extraction faithful  OpenHands #2    ✅ Done (52c0847)
+    │
+    └──▶ Phase 8d  Decompiler fix            OpenHands #3    ✅ Done (2ab10a5)
+             │
+             ▼ (all above complete)
+         Fix 3: IO marker simplification    Kit             🔴 Blocked on 8a-ii + 8b
+             │
+             ▼
+         Fix 4: Type-role prefixes          Kit             🔴 Blocked on all phases
 ```
 
 **Fix 3 gate:** 8a-ii + 8b  
@@ -347,12 +347,12 @@ Phase 8a-ii  Re-extract corpus (lake build)  Local terminal  ūüĒī Needs term
 
 ---
 
-## Critical finding: corpus.jsonl is v1.2.0 ‚ÄĒ polarity tokens were never removed
+## Critical finding: corpus.jsonl is v1.2.0 — polarity tokens were never removed
 
 **Discovered during Phase 8a (2026-08-03).**
 
 `Encoder.lean` Fix 2 (polarity removal) only affects future Lean extractions. `corpus.jsonl`
-was not re-extracted after the fix ‚ÄĒ it still contains v1.2.0 tokens with `neut` after every
+was not re-extracted after the fix — it still contains v1.2.0 tokens with `neut` after every
 row. `build_dataset.py` encodes corpus tokens directly to integer IDs without stripping polarity.
 
 **Consequence:** All three "v1.3.0" training runs (2,213-example wrong corpus, 2,213-example
@@ -367,27 +367,27 @@ This is a prerequisite for any meaningful v1.3.0 experiment. Added as Phase 8a-i
 
 ---
 
-## Phase 8a-ii ‚ÄĒ Re-extract corpus with v1.3.0 Encoder.lean
+## Phase 8a-ii — Re-extract corpus with v1.3.0 Encoder.lean
 
-**Owner:** TBD (requires Lean build environment ‚ÄĒ OpenHands with SSH, or local terminal)  
-**Status:** ūüĒī Not started  
-**Estimated effort:** 2‚Äď4 hours (build time depends on Mathlib cache)  
-**Blocked by:** Phase 8a complete ‚úÖ
+**Owner:** TBD (requires Lean build environment — OpenHands with SSH, or local terminal)  
+**Status:** 🔴 Not started  
+**Estimated effort:** 2–4 hours (build time depends on Mathlib cache)  
+**Blocked by:** Phase 8a complete ✅
 
 ### What to do
 
-1. Run `source ~/.elan/env && lake build` in the repo root ‚ÄĒ confirm build passes clean
+1. Run `source ~/.elan/env && lake build` in the repo root — confirm build passes clean
 2. Run the corpus extraction script against the 14-module target list:
-   `lake exe BuildCorpus` (or equivalent ‚ÄĒ check `Scripts/` for the correct entry point)
+   `lake exe BuildCorpus` (or equivalent — check `Scripts/` for the correct entry point)
 3. Verify the new `corpus.jsonl` has zero `neut`/`pos`/`neg` tokens in any example
-4. Verify declaration count is ‚Č• 3,901 (same as current ‚ÄĒ no regressions from the encoder change)
+4. Verify declaration count is ≥ 3,901 (same as current — no regressions from the encoder change)
 5. Run `python3 python/validate_roundtrip.py --all` and confirm v1.3.0 format detected, 3,901/3,901 pass
 
 ### Pass criterion
 
-‚úÖ `corpus.jsonl` contains zero polarity tokens  
-‚úÖ Declaration count ‚Č• 3,901  
-‚úÖ `validate_roundtrip.py --all` passes with `Detected encoder version: 1.3.0`
+✅ `corpus.jsonl` contains zero polarity tokens  
+✅ Declaration count ≥ 3,901  
+✅ `validate_roundtrip.py --all` passes with `Detected encoder version: 1.3.0`
 
 ---
 
@@ -395,32 +395,32 @@ This is a prerequisite for any meaningful v1.3.0 experiment. Added as Phase 8a-i
 
 | Date | Phase | Action | Result |
 |---|---|---|---|
-| 2026-08-03 | ‚ÄĒ | Plan written | This document |
-| 2026-08-03 | 8a | validate_roundtrip.py updated for v1.2.0/v1.3.0 with version detection | ‚úÖ 3,901/3,901 pass (v1.2.0 corpus) |
-| 2026-08-03 | 8a | Discovered corpus.jsonl is still v1.2.0 ‚ÄĒ polarity removal not yet applied | ‚ö†ÔłŹ See critical finding above |
-| 2026-08-03 | 8a-ii | Re-extracted corpus via lake exe buildCorpus (14 modules, 4,029 examples) | ‚úÖ Zero neut/pos tokens confirmed |
-| 2026-08-03 | 8a-ii | Dataset rebuilt: 3,491 train / 388 eval, median seq len 120 (was 153) | ‚úÖ Ready for v1.3.0 training run |
-| 2026-08-03 | ‚ÄĒ | v1.3.0 training runs complete (embed_pretrain: 1.3896, embed_project: 1.3717) | ‚ö†ÔłŹ Regression vs DEC-021 (1.2978) ‚ÄĒ documented in DEC-022 |
-| 2026-08-03 | ‚ÄĒ | DEC-022 closed: neut = positional anchor, Fix 2 deferred, new baseline 1.3717 | ‚úÖ Next: Phase 8b |
-| 2026-08-03 | 8b | Decoder.lean updated for v1.3.0/v1.4.0 format (was mismatched ‚ÄĒ 3-token E rows vs 2-token) | ‚úÖ Bug fixed |
-| 2026-08-03 | 8b | RoundTripTests.lean written: 18/18 pass against v1.3.0 corpus golden examples | ‚úÖ Phase 8b complete |
-| 2026-08-03 | ‚ÄĒ | Fix 3 (IO markers): corpus re-extracted v1.4.0, vocab 8221‚Üí1236, perplexity 1.2751 (DEC-023) | ‚úÖ New Variant A best |
-| 2026-08-04 | ‚ÄĒ | Flat-IR ablation: 11-token shape-only vocab, PPL 1.0551, bits/tok 0.077 (DEC-024) | ‚úÖ Design-validation complete |
-| 2026-08-04 | ‚ÄĒ | DEC-024 revised: raw PPL comparison invalid across vocab sizes; bits/token is correct metric | ‚úÖ Documented with open questions |
-| 2026-08-05 | 8c | ExtractionFaithfulnessTests.lean: 20/20 pass ‚ÄĒ Lean 4 API fixes, graceful skip when Mathlib unavailable | ‚úÖ Phase 8c complete (commit 52c0847) |
-| 2026-08-05 | 8d | Transpiler.lean: fixed Eq emission, universe level syntax, ‚ąÄ keyword; 4 new decompiler tests pass | ‚úÖ Phase 8d complete (commit 2ab10a5) |
-| 2026-08-05 | ‚ÄĒ | openhands/phase-8c and openhands/phase-8d merged into kit/dev (de679d5) | ‚úÖ All Phase 8 work on kit/dev |
-| 2026-08-05 | ‚ÄĒ | openhands/probing-task-design merged into kit/dev ‚ÄĒ PROBING_TASK_FINAL.md now in repo | ‚úÖ Probing experiment spec finalised |
+| 2026-08-03 | — | Plan written | This document |
+| 2026-08-03 | 8a | validate_roundtrip.py updated for v1.2.0/v1.3.0 with version detection | ✅ 3,901/3,901 pass (v1.2.0 corpus) |
+| 2026-08-03 | 8a | Discovered corpus.jsonl is still v1.2.0 — polarity removal not yet applied | ⚠️ See critical finding above |
+| 2026-08-03 | 8a-ii | Re-extracted corpus via lake exe buildCorpus (14 modules, 4,029 examples) | ✅ Zero neut/pos tokens confirmed |
+| 2026-08-03 | 8a-ii | Dataset rebuilt: 3,491 train / 388 eval, median seq len 120 (was 153) | ✅ Ready for v1.3.0 training run |
+| 2026-08-03 | — | v1.3.0 training runs complete (embed_pretrain: 1.3896, embed_project: 1.3717) | ⚠️ Regression vs DEC-021 (1.2978) — documented in DEC-022 |
+| 2026-08-03 | — | DEC-022 closed: neut = positional anchor, Fix 2 deferred, new baseline 1.3717 | ✅ Next: Phase 8b |
+| 2026-08-03 | 8b | Decoder.lean updated for v1.3.0/v1.4.0 format (was mismatched — 3-token E rows vs 2-token) | ✅ Bug fixed |
+| 2026-08-03 | 8b | RoundTripTests.lean written: 18/18 pass against v1.3.0 corpus golden examples | ✅ Phase 8b complete |
+| 2026-08-03 | — | Fix 3 (IO markers): corpus re-extracted v1.4.0, vocab 8221→1236, perplexity 1.2751 (DEC-023) | ✅ New Variant A best |
+| 2026-08-04 | — | Flat-IR ablation: 11-token shape-only vocab, PPL 1.0551, bits/tok 0.077 (DEC-024) | ✅ Design-validation complete |
+| 2026-08-04 | — | DEC-024 revised: raw PPL comparison invalid across vocab sizes; bits/token is correct metric | ✅ Documented with open questions |
+| 2026-08-05 | 8c | ExtractionFaithfulnessTests.lean: 20/20 pass — Lean 4 API fixes, graceful skip when Mathlib unavailable | ✅ Phase 8c complete (commit 52c0847) |
+| 2026-08-05 | 8d | Transpiler.lean: fixed Eq emission, universe level syntax, ∀ keyword; 4 new decompiler tests pass | ✅ Phase 8d complete (commit 2ab10a5) |
+| 2026-08-05 | — | openhands/phase-8c and openhands/phase-8d merged into kit/dev (de679d5) | ✅ All Phase 8 work on kit/dev |
+| 2026-08-05 | — | openhands/probing-task-design merged into kit/dev — PROBING_TASK_FINAL.md now in repo | ✅ Probing experiment spec finalised |
 
 ---
 
 ## References
 
-- `docs/reference/DECOMPILER_HANDOVER.md` ‚ÄĒ known decompiler failures and handoff notes
-- `docs/history/PHASE_7_ROADMAP.md` ‚ÄĒ IR improvement roadmap (Fix 3, Fix 4, flat-IR ablation)
-- `docs/reference/ENCODER_FORMAT.md` ‚ÄĒ IR token grammar v1.3.0
-- `python/validate_roundtrip.py` ‚ÄĒ Python round-trip validator (currently v1.2.0 only)
-- `Maith/Encoder.lean` ‚ÄĒ token encoder
-- `Maith/Decoder.lean` ‚ÄĒ token decoder (if it exists) / decoder spec
-- `Maith/Transpiler.lean` ‚ÄĒ graph‚ÜíLean decompiler (broken, Phase 8d target)
-- `Tests/` ‚ÄĒ existing Lean test suite
+- `docs/reference/DECOMPILER_HANDOVER.md` — known decompiler failures and handoff notes
+- `docs/history/PHASE_7_ROADMAP.md` — IR improvement roadmap (Fix 3, Fix 4, flat-IR ablation)
+- `docs/reference/ENCODER_FORMAT.md` — IR token grammar v1.3.0
+- `python/validate_roundtrip.py` — Python round-trip validator (currently v1.2.0 only)
+- `Maith/Encoder.lean` — token encoder
+- `Maith/Decoder.lean` — token decoder (if it exists) / decoder spec
+- `Maith/Transpiler.lean` — graph→Lean decompiler (broken, Phase 8d target)
+- `Tests/` — existing Lean test suite
