@@ -3564,3 +3564,67 @@ before #28-#30 are underway; #30 is itself still `status:blocked-needs-input`.
 `git diff --stat -- axiom-rewrite/ docs/experiments/AXIOM_DISCOVERY.md` is empty
 (no code, ledger, or gate touched); `gh issue view 34 --json labels` still shows
 `status:blocked-needs-input` with no `status:available`.
+
+
+### DEC-061 — #33: prior-failure retrieval — family schema and prompt payload decided; issue stays unstarted (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active (answers recorded — reversible by the maintainer)
+**Scope:** issue #33, and DEC-041's #33 row. No gate, ledger code, candidate, or
+experiment is touched. #33's label is left **unchanged** (`needs-triage`), per the
+maintainer's own instruction in the same comment.
+
+**Origin.** #33 was filed by DEC-041 with three open questions and a sequencing
+instruction. A triage on 2026-10-25 (posted 2026-10-26T01:36:18Z) answered the two
+*design* questions by maintainer-delegated judgment; the third ("no-op until
+failures exist") is not a question but a state. Recorded here so the answers are
+durable and #33 is not re-triaged on the same two points.
+
+**Decision 1 — family schema (was question 1).** Prefer a **new `structure_family`
+field** over a structure-to-family mapping. Rationale: the ledger is append-only
+JSONL, which tolerates a new field with no migration; a mapping would need a
+maintained taxonomy that is itself ongoing work. (This is the same trade the
+`domain` free-string limit already carries — `axiom-rewrite/README.md` §Known
+limits — so the field, not the map, is the smaller debt.)
+
+**Decision 2 — what feeds the prompt (was question 2).** Feed **counts grouped by
+`failure_mode`, plus the cited gate.** Not the full prior φ texts. Rationale: full
+φ texts bloat the proposal prompt, and the live-check value is in the *pattern*
+(which failure modes recur for this family/sub-domain), not the text of any one
+attempt.
+
+**Two stale premises in the same comment, corrected here.** They matter because
+they change what #33 is actually blocked on:
+
+- **"#29 (does not exist)" is false.** #29 closed 2026-09-16 (`status:done`);
+  `axiom-rewrite/harness.py` exists (19,537 bytes) with `candidate_from_run()` and
+  `record()`, and gates 1-3 are kernel-discharged (DEC-050). The gate-time half of
+  #33's extension is buildable against a real component, not a hypothetical one.
+- **"#28 phase 2 (blocked)" is stale.** #28 closed `status:done`; the phase-2
+  dedup work (#97) is closed `status:done`; only the ledger wire-in (#114) remains
+  and it is `status:available`. Phase 2 is not blocked.
+
+**Two premises that DO hold, unchanged:**
+
+- **Concurrency control.** The ledger is append-only JSONL with **no locking**
+  (`axiom-rewrite/README.md` §Known limits, single-writer assumption). A *live*
+  check implies concurrent readers, so it needs a lock or an atomic
+  compare-and-append, not just a read.
+- **`--per-operator` extraction is required for any live signal** (DEC-039;
+  `python/structural_similarity.py` enforces it via `assert_per_operator_corpus`).
+  In default `module` mode distinct operators collapse to `GEN_*`, so a live check
+  would emit false "same" *and* false "different" verdicts — worse than no check.
+
+**Why #33 stays unstarted — not promoted to `status:available`:**
+
+1. **Sequencing.** The maintainer's 2026-09-16 note forbids claiming #33 before
+   #28-#30 are underway; **#30 is still `status:blocked-needs-input`**.
+2. **No-op.** The ledger is empty (`axiom-rewrite/candidates.jsonl`, 0 bytes), so
+   there is nothing to retrieve — question 3's state, still true.
+3. **Enum dependency not yet done.** #32 (the `failure_mode` enum) is claimed by a
+   sibling run this same session and is not yet `status:done`.
+
+**Verification:** `grep -n "DEC-061" docs/decisions/LOG.md` shows this entry;
+`git diff --stat -- axiom-rewrite/` is empty (no code, ledger, or gate touched);
+`gh issue view 33 --json labels` still shows `needs-triage` with no
+`status:available`; `wc -c axiom-rewrite/candidates.jsonl` is `0`.
