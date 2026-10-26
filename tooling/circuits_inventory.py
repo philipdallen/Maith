@@ -21,6 +21,7 @@ Exit codes: 0 = ok, 1 = drift (``--check`` only), 2 = source tree not found.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import pathlib
@@ -272,32 +273,24 @@ def check(data: dict, artifact: pathlib.Path) -> int:
     if not artifact.exists():
         print(f"FAIL: artifact missing: {artifact}", file=sys.stderr)
         return 1
-    embedded = load_embedded(artifact)
-    if embedded is None:
+    if load_embedded(artifact) is None:
         print(f"FAIL: no machine-readable block in {artifact}", file=sys.stderr)
         return 1
-    fresh = {
-        "revision": data["revision"],
-        "modules": {
-            m["module"]: {
-                "declarations": len(m["decls"]),
-                "names": [d["name"] for d in m["decls"]],
-            }
-            for m in data["modules"]
-        },
-        "totals": data["totals"],
-    }
-    if fresh == embedded:
+    fresh = render(data)
+    current = artifact.read_text()
+    if fresh == current:
         print(f"OK: inventory matches PleaNP.Circuits @ {data['revision']}")
         return 0
+    # The whole file is compared, not just the embedded block, so a stale
+    # plain-English list is caught too -- that list is the artifact a human
+    # reviews in the corpus plan's step 2.
     print("FAIL: inventory is stale against the source tree", file=sys.stderr)
-    for key in ("revision", "totals"):
-        if fresh[key] != embedded.get(key):
-            print(f"  {key}: artifact={embedded.get(key)} live={fresh[key]}", file=sys.stderr)
-    for mod, info in fresh["modules"].items():
-        old = embedded.get("modules", {}).get(mod)
-        if old != info:
-            print(f"  {mod}: artifact={old} live={info}", file=sys.stderr)
+    for line in list(
+        difflib.unified_diff(
+            current.splitlines(), fresh.splitlines(), "artifact", "fresh", lineterm=""
+        )
+    )[:40]:
+        print(f"  {line}", file=sys.stderr)
     return 1
 
 
