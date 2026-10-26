@@ -173,6 +173,12 @@ jobs:
       - name: Candidate ledger validation not vacuous (mutation check)
         run: python3 axiom-rewrite/test_mutation_guard.py
 
+      # #34: gate 6 — adversarial significance signal via two independent
+      # providers. A non-blocking triage signal, kept out of the ordered gate
+      # map (see axiom-rewrite/gate6.py header).
+      - name: Gate 6 significance-signal tests
+        run: python3 axiom-rewrite/test_gate6.py
+
       # #24: manage.py gate/invariants path resolution. Pins that a relative
       # --datasets resolves against REPO (not the caller's cwd), that a missing
       # dir fails early, and that the gate header shows the resolved tree.

@@ -146,10 +146,42 @@ attempts  g3  g5 failed  domain
 ```bash
 python3 axiom-rewrite/test_candidates.py          # 16 tests
 python3 axiom-rewrite/test_mutation_guard.py      # proves the above can fail
+python3 axiom-rewrite/test_gate6.py               # gate-6 signal tests
 ```
 
-Both run in CI. The guard mutates the real source and restores it in a `finally`,
-so a crash cannot leave the working tree dirty.
+All three run in CI. The guard mutates the real source and restores it in a
+`finally`, so a crash cannot leave the working tree dirty.
+
+## Gate 6 — adversarial significance signal (`gate6.py`, issue #34)
+
+For a candidate that survived gate 5, gate 6 asks **two genuinely distinct
+external models** a mirrored for/against question: give the strongest honest case
+that the candidate is a significant structural result, and the strongest honest
+case that it is unremarkable. Convergent *unremarkable* from both is a cheap
+early reject before a human reads it; disagreement earns attention.
+
+```bash
+python3 axiom-rewrite/gate6.py run --candidate C-001
+python3 axiom-rewrite/gate6.py run --from-ledger          # all gate-5 survivors
+python3 axiom-rewrite/gate6.py list                       # recorded signals
+```
+
+**Gate 6 is a signal, not a gate.** It never blocks `reusable`, which still
+requires gate 5. It is deliberately kept **out of the ordered gate map** in
+`candidates.py`: adding it there would either make it a gate or trip the
+"cannot pass a later gate while an earlier failed" check. Signals live in their
+own append-only ledger, `axiom-rewrite/gate6_signals.jsonl`, keyed by
+`candidate_id`.
+
+Providers are `GOOGLE_API_KEY` (Gemini) and `NVIDIA_BUILD_KEY` (NVIDIA) — two
+distinct providers, per DEC-060. `OPENHANDS_API_KEY` is not a model provider and
+does not count toward independence. A missing key for one provider is recorded as
+`verdict: error` for that model, not a crash.
+
+Retention rule: **no raw prompts or responses are stored.** Each signal keeps the
+per-model verdicts, the `agreement` value, and the `template_version` only;
+`Signal.validate()` rejects a record carrying anything else. Volume is capped at
+10 evaluations per run (`--cap`, revisable).
 
 ## Known limits
 

@@ -9,3 +9,7 @@
 # parallel appends compose instead of colliding. Order within the file is then
 # whatever each side wrote; the ledger is read by `candidate_id`, not position.
 axiom-rewrite/candidates.jsonl merge=union
+# Gate-6 signals (#34) are the same kind of append-only artifact: a signal is
+# written after its candidate record already exists, so the two files can be
+# appended by parallel agents between the same two commits.
+axiom-rewrite/gate6_signals.jsonl merge=union

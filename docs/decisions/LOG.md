@@ -3693,3 +3693,66 @@ three-step chain, each with a single check, ordered by native `blocked_by` edges
 artifact is edited out of sync — the check can fail, so it is a check. Totals:
 `7 modules, 95 declarations (48 theorem/lemma, 47 def/abbrev/structure/inductive),
 3 unproved Prop targets, 0 sorry/admit, 0 axiom`.
+
+### DEC-063 — #34: gate 6 built as a non-blocking significance signal on a separate ledger (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active
+**Scope:** issue #34. Adds `axiom-rewrite/gate6.py`, `axiom-rewrite/test_gate6.py`,
+and an empty `axiom-rewrite/gate6_signals.jsonl`; wires the test into CI. **No
+gate, candidate record, or `candidates.py` schema is touched.**
+
+**Decision.** Gate 6 is implemented exactly to the maintainer's 2026-10-25
+direction, which settled all four scope questions:
+
+1. **Cost/volume cap — 10 evaluations per run**, revisable after the first runs
+   (`--cap`, `DEFAULT_CAP = 10`). Exceeding it defers the remainder to the next
+   run rather than dropping them.
+2. **Retention — no raw prompts or responses are stored.** Only per-model
+   verdicts, the `agreement` value, and the `template_version` are kept.
+   `Signal.validate()` *rejects* a record carrying any other field, so the rule is
+   enforced rather than documented.
+3. **Providers — `GOOGLE_API_KEY` (Gemini) and `NVIDIA_BUILD_KEY` (NVIDIA)**, two
+   genuinely distinct providers. `OPENHANDS_API_KEY` is not a model provider and
+   does not count toward independence (DEC-060).
+4. **Non-blocking signal** — gate 6 never blocks `reusable`, which still requires
+   gate 5. Convergent *unremarkable* is a cheap early reject before human review.
+
+**Why a separate ledger rather than a `gate6` field on the candidate record.**
+`candidates.py` validates `gates` as an **ordered** map over `1..5`
+(`VALID_GATES`), and `axiom-rewrite/README.md` states the rule "a candidate cannot
+pass a later gate while an earlier one failed". A *signal* must not enter that
+machinery: as gate 6 in the map it would either become a gate or trip the ordering
+check. So `candidates.py` is left untouched and signals are appended to
+`axiom-rewrite/gate6_signals.jsonl`, keyed by `candidate_id`. The separate file is
+also the only append-only-compatible shape — a signal is written *after* the
+candidate record exists, so it cannot be added to that unique-per-candidate
+record without rewriting it. `merge=union` is set for the new file in
+`.gitattributes`, matching `candidates.jsonl`.
+
+**Shape.** Two distinct providers answer a mirrored for/against prompt; each
+model's pair collapses to one verdict (`significant`, `unremarkable`, `unclear`,
+or `split` when the answer flips with the framing, or `error` when the call
+fails). Cross-model `agreement` is `unremarkable`, `significant`, `disagreement`,
+or `incomplete`. `early_reject` requires convergent *unremarkable*; disagreement
+earns `attention`. A per-model failure is **data** — recorded as `error`, not a
+crash.
+
+**Bug found in live verification and fixed before commit.** A live run against
+both providers produced convergent `unclear`, which was a valid *label* but not a
+valid *verdict*, so `Signal.validate()` raised and the run aborted. `unclear` is
+now a valid verdict and convergent `unclear` maps to `incomplete` (the models
+agreed on "no judgment", which is not a triage signal either way). Regression
+tests added. This is the class of defect only a real call surfaces.
+
+**Verification:**
+- `python3 axiom-rewrite/test_gate6.py` — all 50 checks pass.
+- `python3 axiom-rewrite/test_candidates.py` — 24 passed, 0 failed (no regression).
+- `python3 axiom-rewrite/test_mutation_guard.py` — 10/10 mutations detected.
+- Live, both providers, cap enforced:
+  `gate6.py --ledger /tmp/... run --from-ledger --cap 2` →
+  `cap 2 reached: evaluating 2 of 3 candidates (1 deferred to the next run)`;
+  `C-900: agreement=disagreement signal=attention (google=unclear, nvidia=split)`.
+- Retention, on the stored line: the record contains only
+  `candidate_id`, `template_version`, `models[{provider,model,for_label,against_label,verdict}]`,
+  `agreement`, `signal`, `timestamp`, `run_id` — no prompt or response text.
