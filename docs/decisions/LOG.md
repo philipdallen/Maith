@@ -3628,3 +3628,68 @@ they change what #33 is actually blocked on:
 `git diff --stat -- axiom-rewrite/` is empty (no code, ledger, or gate touched);
 `gh issue view 33 --json labels` still shows `needs-triage` with no
 `status:available`; `wc -c axiom-rewrite/candidates.jsonl` is `0`.
+
+### DEC-062 — #31: conservativity corpus scope narrowed to circuit complexity; PleaNP.Circuits breadth criterion decided (2026-10-26)
+
+**Date:** 2026-10-26
+**Status:** Active (scope decision — reversible by the maintainer)
+**Scope:** issue #31 and `docs/experiments/BENCHMARK_CORPUS_PLAN.md` Part 1. No
+Lean file, gate, or corpus artifact is touched by this entry.
+
+**Origin.** The maintainer commented on #31 on 2026-10-25 (posted
+2026-10-26T01:45:30Z): "move this forward. Scope narrowed to
+circuit-complexity-only: the corpus will cover the circuit-complexity sub-areas in
+the current PleaNP Circuits inventory, and the plan's domain-breadth check is
+satisfied within that narrowed scope." That comment flipped #31 to
+`status:available` and, in doing so, **answered the one question the blocker had
+left open** — the breadth criterion for PleaNP.Circuits.
+
+**Decision — the breadth criterion.** "Broad enough" is satisfied by the
+**current** `PleaNP.Circuits` tree: **7 modules, 95 declarations** spanning the
+sub-areas below. The criterion is *sub-area coverage within circuit complexity*,
+not a module count across unrelated fields, because the maintainer narrowed the
+corpus to circuit-complexity-only. A multi-domain corpus is future growth and does
+**not** gate #31.
+
+| Module | Sub-area |
+|---|---|
+| `Basic` | gate model, size/depth, P/poly shape, natural-property vocabulary |
+| `AC0` | AC⁰ lower bounds, parity ∉ AC⁰, the depth ladder |
+| `Monotone` | monotone circuits (Razborov direction) |
+| `MonotoneApprox` | monotone approximation reducer (Razborov counting) |
+| `MustRefute` | validation / must-refute suite (non-vacuity) |
+| `Restriction` | random restrictions (Håstad switching-lemma substrate) |
+| `Switching` | switching lemma / decision-tree depth (measure + statement) |
+
+**Corrects a stale premise.** #31's body says PleaNP.Circuits "is only an early
+stub." That was true when the issue was filed (2026-09-15) and is false now:
+`lean/PleaNP/Circuits/` holds the 7 modules above, 1,429 lines, 0 `sorry`/`admit`
+and 0 `axiom` in the code (verified by
+`tooling/circuits_inventory.py --check`). The corpus plan's Part 1 is therefore no
+longer blocked upstream.
+
+**Why the decision is recorded here, not in a new issue.** The maintainer's
+comment *is* the deliverable for the blocker question; recording it as the next
+DEC entry is the "record it where the repo keeps decisions" step. The remaining
+implementation work is filed as a split chain (see below), so no `kind:decision`
+issue is needed.
+
+**#31 is oversize and was split (operating contract, right-sizing).** Its
+Definition of Done named more than one observable check — "an inventory artifact
+… then imported into the Maith IR pipeline with a `lake build` pass/fail signal" —
+which is two steps wearing one issue. It is closed as superseded and replaced by a
+three-step chain, each with a single check, ordered by native `blocked_by` edges:
+
+1. **inventory artifact** (this session) — `tooling/circuits_inventory.py`
+   produces `docs/experiments/CIRCUITS_INVENTORY.md`; `--check` passes.
+2. **toolchain + import signal** — install the Lean toolchain, wire Maith's
+   `lakefile.lean` to `require PleaNP`, and record a `lake build` pass/fail.
+3. **extract PleaNP.Circuits into the corpus** — emit `corpus.jsonl` and a
+   `lake exe` consumer for the narrowed scope.
+
+**Verification:**
+`python3 tooling/circuits_inventory.py --check` prints
+`OK: inventory matches PleaNP.Circuits @ <sha>` (exit 0) and exits 1 when the
+artifact is edited out of sync — the check can fail, so it is a check. Totals:
+`7 modules, 95 declarations (48 theorem/lemma, 47 def/abbrev/structure/inductive),
+3 unproved Prop targets, 0 sorry/admit, 0 axiom`.

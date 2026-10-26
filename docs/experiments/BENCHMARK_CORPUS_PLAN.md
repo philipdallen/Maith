@@ -62,6 +62,15 @@ hand-formalized.
    missing — this becomes a request to Claude Code, not something you
    source yourself.
 
+   > **Decided (2026-10-25, DEC-062).** The maintainer narrowed this corpus to
+   > **circuit-complexity-only** and ruled that the breadth check is satisfied
+   > within that narrowed scope by the current `PleaNP.Circuits` inventory —
+   > 7 modules / 95 declarations spanning the sub-areas above. A broader
+   > multi-domain corpus is future growth and does not gate Part 1. The
+   > mechanical inventory pass is now done:
+   > `docs/experiments/CIRCUITS_INVENTORY.md`, regenerable and checkable via
+   > `python3 tooling/circuits_inventory.py [--check]`.
+
 3. **Import into the Maith IR pipeline.** Claude Code runs the existing
    extraction pipeline (corpus.jsonl generation) against the
    `PleaNP.Circuits` declarations, same as it already does for Mathlib. No new
@@ -181,14 +190,18 @@ changed source on 2026-09-13. Current state, verified:
 | Local `PleaNP.Circuits` | **Exists and is further along than it first appeared** — on PleaNP's `dev` branch (not `main`), `lean/PleaNP/Circuits/` holds five type-checking modules: `Basic.lean` (`BoolGate`, `CircuitFamily`, `IsPPoly`, `PropertyFamily`, `Largeness`, `Constructive`, `NaturalProperty`), `AC0.lean` (`parity`, `IsAC0`, `ComputesParity`, `parity_notin_AC0` as an unproved `def : Prop`, plus depth-1 results), `Monotone.lean`, `MonotoneApprox.lean` (monomial machinery, Razborov direction), and the `MustRefute.lean` validation suite. A **first** transfer test therefore has real content to work with. |
 | Extra circuits modules (#73, #37) | Landed — tree/decision-tree models and an "invented-model round" |
 
-**Consequence for this plan: Part 1 (the conservativity corpus) still cannot be
-signed off, but for a narrower reason than "nothing exists."** The inventory
-pass would find real, type-checking declarations — but they are concentrated in
-circuit complexity (AC0, monotone), so they would not pass the domain-breadth
-check (step 2) that requires genuinely *unrelated* sub-areas. Part 1 is
-**blocked on breadth**, not on existence; issue #31 holds it. If the maintainer
-decides the current spread is enough for a first experiment, that call should be
-recorded as a DEC entry rather than assumed.
+**Consequence for this plan: Part 1 (the conservativity corpus) is no longer
+blocked — the breadth question is decided.** The 2026-09-15 text above said the
+inventory would find declarations "concentrated in circuit complexity (AC0,
+monotone)" and therefore fail a breadth check "that requires genuinely
+*unrelated* sub-areas." The maintainer resolved that tension on 2026-10-25
+(DEC-062): the corpus is **circuit-complexity-only**, so breadth is measured as
+sub-area coverage *within* circuit complexity, and the current `PleaNP.Circuits`
+tree satisfies it. Two facts also corrected since this section was written:
+`PleaNP.Circuits` now lives on `main` (not `dev`), and it is **7 modules / 95
+declarations** (not the five modules listed above) — the extra circuits modules
+(`MonotoneApprox`, `Restriction`, `Switching`) have landed. Verified by
+`python3 tooling/circuits_inventory.py --check`.
 
 **Part 2 (transfer targets) is not blocked at all.** The research and filtering
 passes (DeepSeek + a second LLM pass) need no Lean, and statement formalization
