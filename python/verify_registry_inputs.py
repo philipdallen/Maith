@@ -5,18 +5,21 @@ The registry lets a Run ID resolve *within* the repo. This script checks the
 other half: that the pinned inputs a figure depends on still match what the
 registry claims, so a figure can be traced from its registry entry alone.
 
-It verifies the four things issue #57 calls out:
+It verifies the things issue #57 calls out:
   - the base model is pinned by revision in the training script, and the pinned
     revision matches the registry;
   - the corpus content_hash in corpus_manifest.json matches the corpus bytes;
   - version strings agree across stats.json / representation_manifest.json /
     Maith/Encoder.lean;
-  - the dataset split hashes match the registry.
+  - the tracked manifests/vocabs a figure depends on re-hash to the registry
+    values, and the recorded split counts match (re-verifiable on a bare clone);
+  - the dataset split hashes match the registry, *if* the split files exist.
 
-What it cannot verify from a fresh clone: `Corpus/*.jsonl` and `runs/` are
-gitignored, so the corpus bytes and the trained checkpoints are absent. Those
-checks report SKIP, not PASS — a figure is reproducible only to the extent its
-inputs are tracked.
+What it cannot verify from a fresh clone: `Corpus/*.jsonl`, `datasets/*.jsonl`
+and `runs/` are gitignored, so the corpus bytes, the split files and the trained
+checkpoints are absent. Those checks report SKIP, not PASS, and the registry's
+"Rebuild commands" section gives the command that regenerates each artifact — the
+rebuild-on-demand policy (maintainer decision, issue #57, 2026-10-25).
 
 Usage:
     python3 python/verify_registry_inputs.py [--variant A]
@@ -26,6 +29,7 @@ import argparse
 import contextlib
 import hashlib
 import io
+import json
 import re
 import sys
 from pathlib import Path
@@ -64,6 +68,20 @@ REGISTRY = {
         "A": {"run_id": "A-v3", "metric": "eval_perplexity", "value": 1.2812},
         "B_small": {"run_id": "B-small", "metric": "eval_perplexity", "value": 1.1294},
     },
+    # Tracked artifacts a figure depends on. Unlike the split .jsonl files, these
+    # are committed, so a fresh clone can re-hash them and detect drift.
+    "tracked_manifests": {
+        "datasets/train_manifest.json":
+            "ca2adea1898b07fd290998e184fc082bf2d2cf99dc100634a46d135342ded528",
+        "datasets/eval_manifest.json":
+            "1b69e3010416792b3e3f14bcb590283882b535b9fb4b50dbbf069fe2da4f3f2f",
+        "datasets/representation_manifest.json":
+            "d3e1603d0e3113bf9f793bc428896ca4b76a62eacfac11dd693837bcb6b11a4e",
+        "datasets/vocab_A.json":
+            "44a56373e1bd1ade61c6a69690e497a5eb265efe31fcaf1127b7134525623f28",
+    },
+    # Declaration counts a figure's split must have (representation_manifest.json).
+    "split_counts": {"train_examples": 3375, "eval_examples": 376},
 }
 
 
@@ -95,19 +113,61 @@ def check_base_model_revision():
 
 
 def check_dataset_hashes(variant):
+    """Verify the split hashes for a variant, if the split files are present.
+
+    Returns (status, detail) where status is True/False/None (None = SKIP).
+    `datasets/train_*.jsonl` and `datasets/eval_*.jsonl` are gitignored build
+    artifacts, so they are absent from a fresh clone — that is a SKIP, not a
+    failure. The rebuild command is in RUN_REGISTRY.md ("Rebuild commands").
+    """
     entry = REGISTRY["dataset_sha256"].get(variant)
     if entry is None:
-        return [f"no registry hash entry for variant {variant!r}"]
+        return False, f"no registry hash entry for variant {variant!r}"
+    present = [(REPO / p) for p in (entry[0], entry[2])]
+    if not any(p.exists() for p in present):
+        return None, ("SKIP — datasets/{train,eval}_%s.jsonl are gitignored build "
+                      "artifacts; rebuild via python3 python/build_dataset.py" % variant)
     problems = []
     for path, expected in ((entry[0], entry[1]), (entry[2], entry[3])):
         p = REPO / path
         if not p.exists():
-            problems.append(f"{path} missing (tracked file — should be present)")
+            problems.append(f"{path} missing (rebuild it before trusting the split)")
             continue
         actual = _sha256(p)
         if actual != expected:
             problems.append(f"{path} sha256 {actual[:16]}… != registry {expected[:16]}…")
+    return (not problems), ("match registry" if not problems else "; ".join(problems))
+
+
+def check_tracked_manifests():
+    """Re-hash the tracked manifests/vocabs a figure depends on.
+
+    These files are committed, so this check *can* fail on a real clone — unlike
+    the split-file check. It is the half of provenance a bare clone can verify.
+    """
+    problems = []
+    for rel, expected in REGISTRY["tracked_manifests"].items():
+        p = REPO / rel
+        if not p.exists():
+            problems.append(f"{rel} missing (tracked file — should be present)")
+            continue
+        actual = _sha256(p)
+        if actual != expected:
+            problems.append(f"{rel} sha256 {actual[:16]}… != registry {expected[:16]}…")
     return problems
+
+
+def check_split_counts():
+    """The recorded split sizes must match representation_manifest.json."""
+    p = REPO / "datasets" / "representation_manifest.json"
+    if not p.exists():
+        return False, "representation_manifest.json missing"
+    man = json.loads(p.read_text())
+    problems = [
+        f"{k}={man.get(k)!r} != registry {v!r}"
+        for k, v in REGISTRY["split_counts"].items() if man.get(k) != v
+    ]
+    return (not problems), ("3375 train / 376 eval" if not problems else "; ".join(problems))
 
 
 def main():
@@ -145,9 +205,15 @@ def main():
                      "stats.json == representation_manifest.json == Encoder.lean" if ok
                      else "version strings disagree"))
 
-    problems = check_dataset_hashes(args.variant)
-    rows.append((f"dataset hashes ({args.variant})", not problems,
-                 "match registry" if not problems else "; ".join(problems)))
+    problems = check_tracked_manifests()
+    rows.append(("tracked manifests", not problems,
+                 "hashes match registry" if not problems else "; ".join(problems)))
+
+    ok, detail = check_split_counts()
+    rows.append(("split counts", ok, detail))
+
+    status, detail = check_dataset_hashes(args.variant)
+    rows.append((f"dataset hashes ({args.variant})", status, detail))
 
     fig = REGISTRY["figures"].get(args.variant)
     if fig:

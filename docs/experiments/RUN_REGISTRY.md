@@ -40,8 +40,13 @@ alone (the gap this table closes; see issue #57).
 ### Dataset splits (clean, 3375/376)
 
 These are the split hashes for the rebuilt dedup'd datasets that Variant A and
-flat were retrained on (DEC-031). They are tracked in `datasets/`, so a figure
-can be reproduced from the hash alone.
+flat were retrained on (DEC-031). **The split `.jsonl` files are gitignored
+build artifacts, not tracked** (`.gitignore`: `datasets/train_*.jsonl`,
+`datasets/eval_*.jsonl`), so they are absent from a fresh clone and the hashes
+below cannot be checked until the split is rebuilt — see "Rebuild commands". The
+tracked manifest that *is* checked is `datasets/train_manifest.json` /
+`datasets/eval_manifest.json` (the declaration-name lists) and
+`datasets/representation_manifest.json` (the 3375/376 counts).
 
 | Variant | Train file | Train sha256 | Eval file | Eval sha256 |
 |---|---|---|---|---|
@@ -51,20 +56,63 @@ can be reproduced from the hash alone.
 | C | `datasets/train_C.jsonl` | `c86f73b584045066d8e9289a07dba203e416bfa3514efd2de6ca7a2610ca112c` | `datasets/eval_C.jsonl` | `5686da1b4b133614c7a62b9a89849590a4a97591c1d0c956f608886338ce15b0` |
 | flat | `datasets/train_flat.jsonl` | `edcd2030382c7d861e40384f4b2018b072e2cd252aeb69826ae480d88dc8e2a4` | `datasets/eval_flat.jsonl` | `152d4dfb2637abf56d6a9a52cd2bc1ff9178f608378e0f779878c36728d389bc` |
 
+### Tracked provenance inputs (re-verifiable on a bare clone)
+
+These files are committed, so a fresh clone can re-hash them and detect drift.
+`python3 python/verify_registry_inputs.py` checks each against the hash below.
+
+| Artifact | sha256 |
+|---|---|
+| `datasets/train_manifest.json` | `ca2adea1898b07fd290998e184fc082bf2d2cf99dc100634a46d135342ded528` |
+| `datasets/eval_manifest.json` | `1b69e3010416792b3e3f14bcb590283882b535b9fb4b50dbbf069fe2da4f3f2f` |
+| `datasets/representation_manifest.json` | `d3e1603d0e3113bf9f793bc428896ca4b76a62eacfac11dd693837bcb6b11a4e` |
+| `datasets/vocab_A.json` | `44a56373e1bd1ade61c6a69690e497a5eb265efe31fcaf1127b7134525623f28` |
+| `Corpus/corpus_manifest.json` | `1376cf2a345a36d4e818aae9fa2db0f5a3304756ce9555c81c20f83b89f40909` |
+| `Corpus/stats.json` | `d561f3300f3180106cd8ad1139ef60476c2bbd36249da6e388191e9e030a775b` |
+| `Maith/Encoder.lean` | `31dd19eb34a1b6cbbe1791af9c190b9baf510fb5e8cf388c19fbfd822b66cef6` |
+
+### Rebuild commands
+
+The registry entry is the complete rebuild spec (maintainer decision on issue
+#57, 2026-10-25: **rebuild-on-demand** — corpus bytes and checkpoints are not
+mirrored). Regenerate each untracked artifact from the tracked inputs:
+
+```bash
+# 1. Corpus bytes — needs the Lean toolchain + Mathlib (elan/lake).
+#    Output is gitignored; check_corpus.py gate G2-6 then re-hashes it.
+tooling/install_elan.sh && export PATH="$HOME/.elan/bin:$PATH"
+lake exe cache get
+lake exe buildCorpus                 # per_operator → Corpus/corpus.jsonl
+python3 python/check_corpus.py --corpus Corpus/corpus.jsonl   # expect G2-6 PASS
+
+# 2. Dataset splits — needs transformers (Qwen2.5-Coder-0.5B tokenizer).
+python3 python/build_dataset.py --corpus Corpus/corpus.jsonl --out datasets/ --seed 42
+
+# 3. Checkpoint + figure — needs torch + a GPU. Launch via the canonical entry
+#    point (launch_run.py enforces the invariant checker and writes results.json).
+python3 python/launch_run.py train --variant A --config <config_tag>
+```
+
 ### Producing config
 
-The per-run rows above record vocab, train n, epochs and LR. They do **not**
-record the remaining training config, because it is not tracked.
+The per-run rows above record vocab, train n, epochs and LR (the fields that
+differ per row). Every row also inherits the **shared inputs** (base transformer
+repo + revision, corpus content hash, Mathlib commit) and the constants below.
+Together those two blocks are the complete generating config for a row — the
+rebuild spec a fresh clone needs (issue #57).
 
 | Field | Value |
 |---|---|
+| Base model repo | `Qwen/Qwen2.5-Coder-0.5B` (see "Base transformer") |
+| Base model revision | `8123ea2e9354afb7ffcc6c8641d1b2f5ecf18301` |
+| Corpus content hash | `sha256:d3da238290f5ca46232de5df280d4bcfeab60b127e1b2898cff4172e898e7fe9` |
 | Script | `python/train_v2_resume.py` (canonical), via `python/launch_run.py train`. `python/train.py` is deprecated |
 | Seed | `42` (`SEED`) |
 | Effective batch size | `8` (`BATCH_SIZE` 1 × `GRAD_ACCUM` 8) |
 | Max seq len | `1024` |
-| Where config is written | `runs/<run_id>/results.json` (`variant`, `vocab_size`, `n_params_M`, `train_examples`, `epochs`, `eval_perplexity`, `seed`, `base_model`, `learning_rate`, `effective_batch_size`, `max_seq_len`) |
-| Tracked? | **No.** `runs/` is gitignored; only `runs/h6_retrieval/results.json` is tracked (forced in before the rule). So a clean clone cannot recover seed/batch/max_seq for any Variant A/B/C/flat row |
-| Note | These values are the *current* defaults in `train_v2_resume.py`, not the values captured at each historical run. A row is reproducible from the repo only if the script defaults happened to match at the time — which nothing records or checks. |
+| Where config is written | `runs/<run_id>/results.json` (`variant`, `vocab_size`, `n_params_M`, `train_examples`, `epochs`, `eval_perplexity`, `seed`, `base_model`, `base_model_revision`, `learning_rate`, `effective_batch_size`, `max_seq_len`) |
+| Tracked? | The *config* is recorded here and in `results.json`; `runs/` itself is gitignored, so the checkpoint is rebuilt via "Rebuild commands" rather than recovered from a clone |
+| Note | The values above are the constants `train_v2_resume.py` applies to every row. They are recorded here so a row's config is recoverable without the (untracked) `results.json`. |
 
 ### Reproducing a published figure
 
@@ -75,24 +123,29 @@ values recorded here, and reports PASS / FAIL / SKIP per input:
 python3 python/verify_registry_inputs.py --variant A        # or B_small
 ```
 
-Example (Variant A, clean clone), 2026-09-22 — issue #57 verify step:
+Example (Variant A, clean clone), 2026-10-26 — issue #57 verify step:
 
 ```
   PASS  base_model_revision: pinned + used at all load sites
   SKIP  corpus content_hash: SKIP — Corpus/corpus.jsonl is gitignored (absent from a fresh clone)
   PASS  version consistency: stats.json == representation_manifest.json == Encoder.lean
-  PASS  dataset hashes (A): match registry
+  PASS  tracked manifests: hashes match registry
+  PASS  split counts: 3375 train / 376 eval
+  SKIP  dataset hashes (A): SKIP — datasets/{train,eval}_A.jsonl are gitignored build artifacts; rebuild via python3 python/build_dataset.py
   SKIP  figure value: eval_perplexity=1.2812 (in gitignored runs/; cannot be recomputed without the checkpoint)
-PASSED — 3/3 verifiable checks passed; 2 skipped (inputs not tracked).
+
+PASSED — 4/4 verifiable checks passed; 3 skipped (inputs not tracked).
 ```
 
-Every tracked input a figure depends on now verifies; two remain **untracked**
-(the corpus bytes and the trained checkpoint). Consequently a figure is
-end-to-end reproducible only *after* rebuilding the corpus — `lake exe
-buildCorpus --per-operator` (G2-6 then confirms the hash) and re-running
-`python3 launch_run.py train --variant A` — not from a bare clone. Tracking
-those artifacts (or a public corpus mirror) is the remaining work, out of scope
-for a registry-only change.
+**What "reproduce from the registry entry alone" means here.** Every tracked
+input a figure depends on is pinned and re-verified on a bare clone: the base
+model repo+revision, the corpus content hash, the version strings, the tracked
+manifests and the split counts. The corpus bytes, the split `.jsonl` files and
+the checkpoint are **not mirrored** (rebuild-on-demand, maintainer decision
+2026-10-25); the registry entry is the rebuild spec, and "Rebuild commands"
+above regenerates each artifact. Rebuilding the checkpoint and re-deriving
+`eval_perplexity` additionally needs the Lean/Mathlib toolchain, `torch` and a
+GPU, none of which a bare clone supplies.
 
 ## Checkpoint inventory
 
