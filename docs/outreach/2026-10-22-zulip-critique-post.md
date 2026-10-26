@@ -3,6 +3,8 @@
 > **Status:** draft, not posted. Posting is owner-only (see Maith #104).
 > **Source issue:** Maith #105 (agent-side breakout of #104).
 > **Prepared:** 2026-10-22, run `20261022-0141-6bsw`.
+> **Figures re-verified against source records:** 2026-10-26, run `20261026-0206-a7kd` — every figure
+> traced clean except the DEC-025 probe gap, which is pre-reset and now carries an explicit caveat.
 > **Every figure below is traced to a record in this repo; the trace table is at the end.**
 > **Do not post without the owner reading it first.**
 
@@ -53,9 +55,13 @@ be present — that is one of the questions below.**
   caveat, stated plainly because it matters: that figure is the **v1 string-token**
   round-trip (`validate_roundtrip.py`). The current v2 corpus is **4,029** declarations
   across 14 Mathlib modules.
-- **The IR encodes semantics.** A linear probe separates IR from a shape-only ablation:
-  **75.4% vs 13.6%** module-classification accuracy (**DEC-025**) — a 62-point gap. The
-  IR is not a syntactic relabelling.
+- **The IR encodes semantics — pre-reset evidence.** A linear probe separates IR from a
+  shape-only ablation: **75.4% vs 13.6%** module-classification accuracy (**DEC-025**) — a
+  62-point gap. Scope caveat, stated plainly because it is the one figure here the reset
+  touches: DEC-025 predates DEC-031, so the hypothesis grid marks H1 *invalidated, pending
+  re-test under quality gates* (Maith #110) and the 62-point gap is **historical, not
+  current evidence**. It is kept because it is the strongest existing signal that the IR is
+  not a syntactic relabelling; the clean re-test is the open item.
 - **But it does not beat size-matched BPE on prediction.** At matched params and epochs,
   the IR variant does **not** improve next-token prediction or completion accuracy over
   `B_small_clean` (**DEC-027**). The high perplexity of the IR variant is a task-difficulty
@@ -107,7 +113,7 @@ different measurement. For question 3: an argument, either way.
 | v2 corpus 4,029 declarations, 14 modules | `README.md`; `docs/reference/GLOSSARY.md` |
 | DEC-031 invalidation (leakage / epoch / contamination) | `docs/decisions/LOG.md` DEC-031 |
 | Clean retrains, matched splits and sizes | `docs/decisions/LOG.md` DEC-032 |
-| 75.4% vs 13.6% probe gap | `docs/decisions/LOG.md` DEC-025 |
+| 75.4% vs 13.6% probe gap (**pre-reset; H1 invalidated pending re-test**) | `docs/decisions/LOG.md` DEC-025; status in `docs/experiments/HYPOTHESIS_GRID.md` H1; re-test is Maith #110 |
 | IR does not beat size-matched BPE on prediction | `docs/decisions/LOG.md` DEC-027 |
 | H6 Mode 1 / Mode 2 disagreement | `docs/decisions/LOG.md` DEC-034; `docs/experiments/H6_RESULTS.md` |
 | H5 ambiguous positive | `docs/decisions/LOG.md` DEC-035; `docs/experiments/HYPOTHESIS_GRID.md` H5 |
