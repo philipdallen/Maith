@@ -103,8 +103,8 @@ the operation op payload (module → `proj:GEN_MATHLIB/0`, per_operator →
 per_operator changes.)
 
 **Gate 4 — vocab-size report ✅ PASSED (2026-10-27).** The per_operator vocab is
-~4× the module vocab, so the experiment is informative (not near-identical by
-construction). Evidence, from tracked artifacts:
+~2× the module vocab (1235 vs 601 content tokens), so the experiment is informative
+(not near-identical by construction). Evidence, from tracked artifacts:
 
 | Artifact | Mode | Vocab (incl. `<PAD>`) | Vocab (content tokens) |
 |---|---|---|---|
