@@ -100,9 +100,9 @@ Budget for that, and see `docs/TOOLCHAIN_AND_CI.md` for the bootstrap.
 mutation guard with it that purges bytecode after restoring (see the warning above
 in §Commands).
 | **#30** | First candidate batch, log all outcomes | blocked by #26, #27, #29 |
-| **#31** | Conservativity corpus (corpus plan Part 1) | **blocked** upstream (`status:blocked-needs-input`) |
+| **#31** | Conservativity corpus (corpus plan Part 1) | **closed/done** — breadth question resolved by DEC-062 (2026-10-25); substrate on `main` is 7 modules / 95 declarations |
 | **#32–#34** | Search/proposal refinements (failure-mode enum, failure retrieval, gate 6) | filed 2026-09-16; **explicitly not the current priority** — do not reorder to start them |
-| — | PleaNP **#102** (root lakefile) | external blocker for #26's formalization step |
+| — | PleaNP **#102** (root lakefile) | **closed** — external blocker for #26's formalization step is cleared (2026-09-16) |
 
 CI is green on both `main` and `dev` (3 jobs: Lean build+test, Tier-1 validation gates,
 stdlib-only Python tests). `main` and `dev` are content-identical.
@@ -182,17 +182,56 @@ unblocked.** Step 4 (formalization) waits on PleaNP #102. #26 carries no
 `status:available` label until then; the external blocker is stated in-body
 because a cross-repo issue cannot be a native GitHub `blocked_by` edge.
 
-## Upstream dependency (PleaNP) — verified 2026-09-15
+## Upstream dependency (PleaNP) — refreshed 2026-10-27
 
 Maith's benchmark corpus depends on PleaNP's circuit-complexity substrate.
 
-- **Repo:** `github.com/philipdallen/PleaNP`. **Work off `origin/dev`**, not
-  `main` — `dev` is 212 commits ahead and holds the circuits work.
+### Current status (verified 2026-10-27)
+
+Re-checked against PleaNP **`main`** (its default branch) at head
+`c9ac9bf39fb9449369f4da19534676310e69f9e2` (2026-10-27). Pins unchanged: Lean
+`v4.31.0`, Mathlib `v4.31.0`. `lean/PleaNP/Circuits/` now holds **7 modules /
+95 declarations** (48 theorem/lemma, 47 def/abbrev/structure/inductive; 3
+unproved `Prop` targets, 0 sorry/admit, 0 axiom), all on `main`:
+
+| Module | Sub-area | Decls |
+|---|---|---|
+| `Basic.lean` | circuit basics (gate model, size/depth, P/poly, natural properties) | 17 |
+| `AC0.lean` | AC⁰ lower bounds (parity ∉ AC⁰; depth ladder) | 15 |
+| `Monotone.lean` | monotone circuits (Razborov direction) | 12 |
+| `MonotoneApprox.lean` | monotone approximation reducer (Razborov counting) | 20 |
+| `Restriction.lean` | random restrictions (Håstad switching-lemma substrate) | 15 |
+| `Switching.lean` | switching lemma / decision-tree depth | 12 |
+| `MustRefute.lean` | validation / must-refute suite (non-vacuity) | 4 |
+
+**Breadth check: PASS — within the narrowed scope.** Per DEC-062 the corpus is
+circuit-complexity-only, so breadth is measured as sub-area coverage *within*
+circuit complexity; the seven modules span six sub-areas (gate model, AC⁰
+lower bounds, monotone, monotone approximation, random restrictions, switching
+lemma) plus the non-vacuity suite. Regenerable and checkable via
+`python3 tooling/circuits_inventory.py [--check]`; the checked-in artifact is
+[`docs/experiments/CIRCUITS_INVENTORY.md`](experiments/CIRCUITS_INVENTORY.md).
+Note: issue #31 (the conservativity corpus this breadth serves) is already
+**closed/done**; this note records the current reading only and changes nothing
+about #31.
+
+**Referenced upstream issues, all now closed:** PleaNP #72 (switching-lemma
+proof — closed), #101 (comment corruption — closed), #102 (root `lakefile`
+shim — closed, so the Maith-side packaging blocker is cleared; see
+§"Cross-repo imports"), #105 (`main`/`dev` divergence — closed). **`main` is
+PleaNP's default branch and carries the circuits work — do not work off `dev`.**
+
+**Superseded snapshot below (verified 2026-09-15), kept for history.** It lists
+five modules on `dev`; the module list, the branch, and the issue states it
+records have since changed — the table above is current.
+
+- **Repo:** `github.com/philipdallen/PleaNP`. ~~Work off `origin/dev`~~ —
+  **superseded: work off `main`** (see current status above).
 - **Pins (on `dev`):** Lean `v4.31.0`, Mathlib `v4.31.0` — same as Maith.
 - **`complexitylib` will never be imported** (PleaNP #70, 2026-09-13): its head
   pins `v4.34.0-rc2` + a `cslib` dependency, incompatible with the stable pin.
   Do not write plans against it.
-- **`lean/PleaNP/Circuits/` on `dev`** currently contains (all type-checking,
+- **`lean/PleaNP/Circuits/` on `dev`** then contained (all type-checking,
   validation suite landed via #71):
   - `Basic.lean` (174 lines) — `BoolGate`, `CircuitFamily`, `IsPPoly`,
     `PropertyFamily`, `Largeness`, `Constructive`, `NaturalProperty`
@@ -202,25 +241,28 @@ Maith's benchmark corpus depends on PleaNP's circuit-complexity substrate.
   - `Monotone.lean` (123) — `MonotoneGate`, monotonicity preservation
   - `MonotoneApprox.lean` (170) — monomial/approx-set machinery (Razborov direction)
   - `MustRefute.lean` (62) — must-refute suite keeping the above non-vacuous
-- **Open upstream:** PleaNP #72 (parity  AC⁰, Pass 2 landed the structural core;
-  switching-lemma proof still open).
+- **Open upstream (then):** PleaNP #72 (parity ∉ AC⁰, Pass 2 landed the
+  structural core; switching-lemma proof still open) — **now closed.**
 - **Integration point:** PleaNP's `#barrier_check` elaborator
   (`lean/PleaNP/Calculus/BarrierCalculus.lean`) screens a transferred
   circuit-complexity theorem for relativization before it counts as interesting.
 - **Packaging blocker for the Maith side:** PleaNP **#102** (root `lakefile` shim)
   — needed before Maith can `require PleaNP` for #26's formalization step. See
-  §"Cross-repo imports" above.
-- **Also open:** PleaNP #101 (comment corruption — see the escalation above), and PleaNP **#105** (`main`/`dev` divergence: 4 README commits on `main` not
-  in `dev`, so a `dev`->`main` merge could lose them).
+  §"Cross-repo imports" above. **Cleared: #102 is closed (see current status).**
+- ~~**Also open:** PleaNP #101 (comment corruption — see the escalation above),
+  and PleaNP **#105** (`main`/`dev` divergence: 4 README commits on `main` not
+  in `dev`, so a `dev`->`main` merge could lose them).~~ **Both now closed**
+  (see current status).
 - **PleaNP CI is green on both branches**: `dev` (run #99, 40/40) and `main`
   (run #101, 40/40, after the `dev` -> `main` merge `a4aae01`). `dev` pushes have
   been trigger-covered since 2026-09-16, so an upstream break is visible rather
   than silent. `main` and `dev` are content-identical. See DEC-044.
 
-**Independent verification of all five Circuits modules (2026-09-15).** A
-separate reviewer checked `Basic`, `AC0`, `Monotone`, `MonotoneApprox`, and
-`MustRefute` against the claims above: all five confirmed accurate — real
-proofs, zero sorries, no inflated claims. Two additions. First, `AC0.lean`
+**Independent verification of the five then-current Circuits modules
+(2026-09-15).** A separate reviewer checked `Basic`, `AC0`, `Monotone`,
+`MonotoneApprox`, and `MustRefute` against the claims in the snapshot below:
+all five confirmed accurate — real proofs, zero sorries, no inflated claims.
+Two additions. First, `AC0.lean`
 carries **more** proved content than the bullet list implies
 (`parity_notin_AC0_relativizing`, plus `depth_eq_zero_iff_input` and
 `not_computes_parity_depth1`), so "materially further along than stub" is if
@@ -237,11 +279,13 @@ commit, absent from the newer `Circuits/` modules, and **not** caused by any
 in-repo tooling (no script writes `.lean` source). Do not mistake it for a
 defect in the elaborator.
 
-**Note:** the corpus-breadth requirement in `BENCHMARK_CORPUS_PLAN.md` Part 1 is
-that the corpus span *genuinely unrelated* sub-areas. Today's substrate is
-circuit-complexity-focused (AC⁰, monotone) — that may be enough for a **first**
-transfer test, but Part 1's sign-off needs more breadth than exists. Issue #31
-holds that blocker.
+**Note (superseded):** the corpus-breadth requirement in
+`BENCHMARK_CORPUS_PLAN.md` Part 1 originally required *genuinely unrelated*
+sub-areas, and the 2026-09-15 substrate (AC⁰, monotone) was too narrow to
+satisfy it. That tension was resolved on 2026-10-25 (DEC-062): the corpus is
+**circuit-complexity-only**, so breadth is measured as sub-area coverage
+*within* circuit complexity, which the current 7-module `PleaNP.Circuits` tree
+satisfies (see current status above). Issue #31 is **closed/done**.
 
 ## The human's part (don't block on it, but surface it)
 
