@@ -103,19 +103,24 @@ Two detailed specs are in `docs/reference/`. Their implementation status:
 
 ### Spec 1: Operator Un-Bucketing (DEC-028) — [SPEC_PER_OPERATOR.md](../reference/SPEC_PER_OPERATOR.md)
 
-**Status: In progress.** Lean + Python changes landed on kit/dev (`213d013`). Gate 4
-(corpus rebuild + vocab check) pending — requires `lake build Mathlib` first.
+**Status: Gate 4 closed 2026-10-27** (vocab-size report recorded in
+[SPEC_PER_OPERATOR.md](../reference/SPEC_PER_OPERATOR.md)). The corpus rebuild was not
+run here (no Lean toolchain in this environment); the report is from the tracked
+per_operator vocab artifact `datasets/vocab_A_v1.json`. The A-vs-B-small experiment
+remains unrun.
 
 | Gate | Description | Status |
 |---|---|---|
 | 1 | headShortName threading (op:mul_comm emitted for real constants) | ✅ Passed |
 | 2 | Mode isolation (switching bucketMode changes only op payload) | ✅ Passed |
 | 3 | op:/proj: round-trip (decoder cases prevent silent .pow fallback) | ✅ Passed |
-| 4 | Vocab-size report (per_operator vocab meaningfully different from 601) | ⬜ Pending |
+| 4 | Vocab-size report (per_operator vocab meaningfully different from 601) | ✅ Passed 2026-10-27 — 1235 vs 601 content tokens |
 
 **Next steps:** `lake build Mathlib` → `lake exe buildCorpus --per-operator` →
 `python3 python/build_dataset.py --bucket-mode per_operator` → check vocab size →
-run A-vs-B-small experiment.
+run A-vs-B-small experiment. **Caveat:** the docs cite a 2,254-token A_v3_2ep vocab
+that is not in any tracked artifact (tracked per_operator vocab is 1,236; RUN_REGISTRY
+lists A-v3 at 8,102). Reconcile that number against a rebuilt corpus before citing it.
 
 ### Spec 2: Proof-Term Extraction (DEC-029 #2) — [SPEC_PROOF_TERMS.md](../reference/SPEC_PROOF_TERMS.md)
 
