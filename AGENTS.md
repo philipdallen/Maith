@@ -74,7 +74,7 @@ rather than raw source syntax — improves performance on formal-math tasks.
 
 | Term | Meaning |
 |---|---|
-| **A** | IR tokens (semantic graph) — per-operator mode uses gen:FullName, 2254-vocab |
+| **A** | IR tokens (semantic graph) — per-operator mode uses gen:FullName, 2254-vocab ⚠️ see note below |
 | **B** | Raw leanExpr via Qwen BPE, 151K-vocab, 494M params |
 | **C** | AST-split leanExpr via Qwen BPE, 151K-vocab, 494M params |
 | **B-small** | BPE truncated to 601 tokens, 358M params (size-matched control for A) |
@@ -84,6 +84,12 @@ rather than raw source syntax — improves performance on formal-math tasks.
 | **DEC-0XX** | Decision-log entry in `docs/decisions/LOG.md` |
 | **Pretrained** | Qwen2.5-Coder-0.5B before fine-tuning — has existing retrieval signal (S1 finding) |
 | **Fine-tuned** | Pretrained model + Maith training on IR/BPE data |
+
+> **⚠ Vocab-size note (2026-10-27, #117).** The `2254-vocab` figure above for
+> per-operator mode is **not verifiable against any tracked artifact**. The tracked
+> per_operator vocab `datasets/vocab_A_v1.json` has **1,236** entries, and
+> `RUN_REGISTRY.md` lists A-v3 at **8,102**. Reconcile against a rebuilt per_operator
+> corpus before citing 2,254. See `docs/reference/SPEC_PER_OPERATOR.md` Gate 4.
 
 > **⚠ All prior experimental results invalidated (2026-08-12, DEC-031/032).**
 > The results table below has been removed. Previous numbers were from runs with
