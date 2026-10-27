@@ -3756,3 +3756,47 @@ tests added. This is the class of defect only a real call surfaces.
 - Retention, on the stored line: the record contains only
   `candidate_id`, `template_version`, `models[{provider,model,for_label,against_label,verdict}]`,
   `agreement`, `signal`, `timestamp`, `run_id` — no prompt or response text.
+
+---
+
+### DEC-064 — #112: keep the shelved toy-model scripts live on the filesystem; no `archive/` move (2026-10-27)
+
+**Date:** 2026-10-27
+**Status:** Active
+**Scope:** issue #112. Decision record only — **no filesystem move, no script
+edit, no change to training behaviour.** Touches `docs/decisions/LOG.md` and
+`docs/decisions/INDEX.md`.
+
+**Context.** DEC-036 shelved toy-model training as a *research direction* when the
+active track moved to axiom discovery. A prior reconciliation note
+(`AXIOM_DISCOVERY.md`, DEC-037) corrected a stale doc claim that the loop had been
+"moved to `archive/`": no `archive/` directory exists, and the scripts
+(`train.py`, `train_h5_contrastive.py`, `train_h5_projection.py`,
+`train_h9_cotrain.py`, `train_v2_resume.py`) remain live. #112 asks for the two
+outcomes to be reconciled *explicitly* — either move the scripts and update every
+reference, or record a decision to keep them live and correct any doc implying a
+move.
+
+**Decision.** **Keep the scripts live in place; do not create `archive/`.**
+`manage.py` and `launch_run.py` continue to reference them (`manage.py` drives the
+H5 contrastive/projection and H9 co-training aliases and the `train_v2_resume.py`
+base script; `launch_run.py` defaults `--base-script train_v2_resume.py`), and the
+shelving is a research-direction decision, not a filesystem one. The doc set is
+already consistent with this: every `archive/` mention in the repo is a
+reconciliation note *stating* that no such directory exists (`AXIOM_DISCOVERY.md`
+lines 22 and 102; `LOG.md` line 2084). No doc claims a move happened.
+
+**Rationale.** Option A (move to `archive/` and rewire) would change a control
+surface for a track that is shelved, not retired, and risks silently altering
+training behaviour — the opposite of what a shelving decision should do. Keeping
+the scripts live costs nothing: they are inert unless invoked, and leaving the
+wiring intact is what makes the shelving reversible, which DEC-036 explicitly
+intends ("shelved, not deleted").
+
+**Verification (DoD command, `git grep` over tracked files):**
+- `git grep -n "archive/"` (excluding this entry) → 3 hits, all reconciliation
+  notes asserting no `archive/` exists; **zero** claims that a move happened.
+- `git grep -ni "shelved"` → all 11 hits describe the research-direction
+  shelving; none assert a filesystem relocation.
+- `python3 tooling/gates/hygiene_scan.py --prove-stage Maith Tests Scripts` →
+  `Gate 6 (Tier 1) clean: no sorry/admit/axiom in 3 path(s).`
