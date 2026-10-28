@@ -89,6 +89,7 @@ the design-quality component remains open. See
 | H5 | Training objective is the bottleneck | Open | Masked-reconstruction or proof-completion objective experiment | ◐ Requires training-code changes (new loss function) |
 | H9 | Co-training (IR alongside source) recovers gains | Open | Multi-objective training experiment (PACT precedent) | ◐ Requires multi-objective training setup |
 | C3 | Attribute sparsity (v2.x IR candidate) | Deferred | Implement + evaluate against control grid | ◐ Requires Lean cross-check; **evaluate on retrieval, not perplexity** |
+| v3 redundancy | Semantic-redundancy candidate (adds meaningful + predictable tokens; the H11 design-quality component) | Spec drafted ([SPEC_V3_SEMANTIC_REDUNDANCY.md](../reference/SPEC_V3_SEMANTIC_REDUNDANCY.md)) | Build the candidate, then evaluate retrieval-first against the A_v2 / B_small / flat grid | ◐ Spec only; implementation is a separate step. Distinct from C3 (which *removes* attribute noise) |
 | **DEC-028** | C4 bucketing confound — `per_operator` mode | Open | Add `bucket_mode` flag to MetaExtractor/encode_ir; re-run A-vs-B-small with `per_operator` | ✅ **Decisive test** — if A beats B-small, the null was a C4 artifact. Requires code change + training run. |
 
 ### Code fixes (trivial — DEC-029)
