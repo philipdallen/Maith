@@ -188,6 +188,9 @@ material — but that is an interpretation the maintainer should confirm at step
   span sub-domains, which is what gate 5 (breadth) asks for.
 - **Verification:** confirmed — Toronto CS 2429 lecture notes; `Communication Lower
   Bounds via Critical Block Sensitivity`; the hazard-free KW paper (ITCS 2023).
+- **Substrate spec:** [`SPEC_T7_COMMUNICATION_SUBSTRATE.md`](SPEC_T7_COMMUNICATION_SUBSTRATE.md)
+  (Maith #115) — the formalization-ready model, statements, citations, extraction
+  needs, and open questions for T7's communication half.
 
 ### T8 — Super-polynomial lower bounds for Frege and Extended Frege
 
