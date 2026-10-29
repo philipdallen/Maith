@@ -114,6 +114,42 @@ def test_fixture_must_carry_phi_graph():
             check("missing phi_graph rejected", True)
 
 
+def test_dedup_run_records_ledger_with_coverage():
+    """DoD (#114): a synthetic dedup run is recorded in the ledger with coverage.
+
+    The dedup verdict must become ledger state readable back through
+    `candidates.py` -- not just fixture output. Recording twice is refused, because
+    the ledger is append-only.
+    """
+    import tempfile
+    import candidates as cand_mod
+    with tempfile.TemporaryDirectory() as td:
+        led = Path(td) / "candidates.jsonl"
+        specs = _load_all()
+        groups = dd.dedup(specs)
+        written = dd.record_dedup(specs, groups, led)
+        check("all fixtures recorded", written == len(specs), f"wrote {written}")
+
+        recs = {c.candidate_id: c for c in cand_mod.read_ledger(led)}
+        check("ledger holds every fixture",
+              set(recs) == {"C-DEDUP-A", "C-DEDUP-B", "C-DEDUP-DISTINCT"})
+        check("duplicate verdict recorded on both members",
+              "duplicate group C-DEDUP-A = C-DEDUP-B" in recs["C-DEDUP-A"].note
+              and "duplicate group C-DEDUP-A = C-DEDUP-B" in recs["C-DEDUP-B"].note)
+        check("distinct verdict recorded",
+              "dedup: distinct" in recs["C-DEDUP-DISTINCT"].note)
+
+        rows = cand_mod.coverage(led)
+        check("coverage map derives one domain row",
+              len(rows) == 1 and rows[0]["attempts"] == 3, f"rows={rows}")
+
+        try:
+            dd.record_dedup(specs, groups, led)
+            check("re-recording refused (append-only)", False, "no LedgerError raised")
+        except cand_mod.LedgerError:
+            check("re-recording refused (append-only)", True)
+
+
 def main() -> int:
     test_duplicate_text_different_elaboration_is_caught()
     test_genuinely_different_phi_is_distinct()
@@ -121,6 +157,7 @@ def main() -> int:
     test_operation_identity_change_breaks_the_duplicate()
     test_fixture_must_be_a_candidate_record()
     test_fixture_must_carry_phi_graph()
+    test_dedup_run_records_ledger_with_coverage()
     passed = sum(1 for _, ok, _ in _results if ok)
     failed = len(_results) - passed
     print("\n" + "=" * 40)

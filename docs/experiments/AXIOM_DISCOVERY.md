@@ -526,3 +526,14 @@ on candidates existing as elaborated Lean terms (#29) and on
 `Scripts/BuildCorpus.lean`'s hardcoded module list being extended.
 
 Each candidate outcome is recorded as a DEC entry (pass and fail alike).
+
+**Dedup runs are ledger state (#114).** The phase-2 dedup
+(`python/structural_similarity_dedup.py`) records each fixture's candidate record
+into the ledger with `--record <ledger>`, so its duplicate/distinct verdict becomes
+queryable ledger state (`candidates.py read_ledger` / `coverage`) instead of living
+only in fixture output. The verdict rides in the record's `note` field
+(`dedup: duplicate group A = B` or `dedup: distinct`); no schema change is needed,
+and the ledger's own `validate()` remains the authority on what may be appended. The
+synthetic-fixture path is wired; the real-candidate path stays blocked exactly as
+before — it needs candidates as elaborated Lean terms (#29) and an extended
+`Scripts/BuildCorpus.lean` module list, neither of which this touches.

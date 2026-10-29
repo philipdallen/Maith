@@ -131,11 +131,40 @@ def distinct(groups: dict) -> list[str]:
     return sorted(ids[0] for ids in groups.values() if len(ids) == 1)
 
 
+def record_dedup(specs: list[CandidatePhi], groups: dict, ledger: Path) -> int:
+    """Append each fixture's candidate record to `ledger` with its dedup verdict.
+
+    This is the wiring #114 asks for: the dedup decision (duplicate of which ids,
+    or distinct) becomes ledger state instead of living only in fixture output, so
+    it is queryable through `candidates.py` -- `read_ledger`, `coverage`. The
+    verdict rides in `note`; no schema change is needed, and the ledger's own
+    `validate()` remains the authority on what may be appended.
+
+    Returns the number of records written. Raises `LedgerError` if a record is
+    rejected (e.g. a `candidate_id` already present -- the ledger is append-only).
+    """
+    group_of: dict[str, str] = {}
+    for g in duplicates(groups):
+        for cid in g:
+            group_of[cid] = " = ".join(g)
+    for s in specs:
+        rec = s.record
+        verdict = (f"dedup: duplicate group {group_of[rec.candidate_id]}"
+                   if rec.candidate_id in group_of else "dedup: distinct")
+        rec.note = (f"{rec.note} | {verdict}" if rec.note else verdict)
+        cand_mod.append_candidate(Path(ledger), rec)
+    return len(specs)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="phase-2 candidate dedup over elaborated phi terms (#97)")
     ap.add_argument("--fixtures", required=True, help="fixture directory or one JSON file")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--record", default=None, metavar="LEDGER",
+                    help="append each fixture's candidate record (with its dedup "
+                         "verdict) to this ledger, e.g. axiom-rewrite/candidates.jsonl. "
+                         "Defaults to not recording, so a dry run changes nothing.")
     args = ap.parse_args(argv)
 
     target = Path(args.fixtures)
@@ -154,6 +183,14 @@ def main(argv: list[str] | None = None) -> int:
     groups = dedup(specs)
     dups = duplicates(groups)
     dist = distinct(groups)
+
+    if args.record:
+        try:
+            written = record_dedup(specs, groups, Path(args.record))
+        except cand_mod.LedgerError as e:
+            print(f"ERROR: ledger rejected the record: {e}", file=sys.stderr)
+            return 2
+        print(f"recorded {written} candidate record(s) to {args.record}")
 
     if args.json:
         print(json.dumps({"n": len(specs), "duplicates": dups, "distinct": dist},

@@ -132,6 +132,22 @@ from the ledger are reported with **zero attempts** and sorted first — that is
 whole point of the map: it is what tells proposal where to aim instead of
 re-testing easy wins.
 
+### Recording a dedup run (`structural_similarity_dedup.py`, #114)
+
+The phase-2 dedup records each fixture's candidate record into the ledger, so its
+duplicate/distinct verdict is queryable ledger state rather than fixture output
+only. The verdict is written into the record's `note`; nothing about the record
+schema changes.
+
+```bash
+python3 python/structural_similarity_dedup.py \
+  --fixtures axiom-rewrite/fixtures/dedup \
+  --record axiom-rewrite/candidates.jsonl      # omit --record for a dry run
+```
+
+Recording is append-only: a `candidate_id` already in the ledger is rejected
+(`LedgerError`), so a fixture cannot silently overwrite an existing candidate.
+
 ### Example coverage output
 
 ```
