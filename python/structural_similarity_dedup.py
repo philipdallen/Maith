@@ -94,6 +94,12 @@ def load_spec(path: Path) -> CandidatePhi:
 
     fields = {k: raw[k] for k in REQUIRED_FIELDS}
     fields["gates"] = raw.get("gates", {})
+    # Optional candidate fields must be forwarded too: the ledger's own
+    # `validate()` requires `failure_mode` on any record whose first gate failed
+    # (issue #32), and dropping it here would make every such fixture unloadable.
+    for opt in ("failure_mode", "compression", "reusable", "note"):
+        if opt in raw:
+            fields[opt] = raw[opt]
     record = cand_mod.Candidate.from_json(fields)
     record.validate()
     return CandidatePhi(record=record, phi_graph=raw["phi_graph"])

@@ -5,6 +5,7 @@
   "phi": "def phi (n : Nat) : Nat := Nat.succ n",
   "provenance": "DoD fixture for #97: a genuinely different elaborated phi must stay distinct",
   "gates": {"1": "fail"},
+  "failure_mode": "not_homomorphism",
   "phi_graph": {
     "entities": [
       {"id": {"kind": "var", "name": "Nat"}},
