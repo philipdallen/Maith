@@ -48,6 +48,32 @@ Can language models become better theorem provers if trained on a representation
 > [`LEAN_PIPELINE_AUDIT_2026_08`](docs/experiments/LEAN_PIPELINE_AUDIT_2026_08.md) (Lean IR/corpus code audit) ·
 > [`DECISION_LOG`](docs/decisions/LOG.md) (DEC-001..DEC-056).
 
+> **Decision criteria (next experiment).** The next experiment is **#30, the first
+> candidate batch** — propose candidate maps φ over the *operational*
+> transfer-target set (T1, T4-monotone, T5, T6, T7-monotone, T9-super-poly, T10;
+> DEC-057), run each through the five-gate pipeline
+> ([`AXIOM_DISCOVERY`](docs/experiments/AXIOM_DISCOVERY.md) § Validation
+> pipeline), and record every outcome in the ledger regardless of result.
+>
+> - **Pass:** at least one candidate passes **gate 3** (transfer) — a *new* or
+>   *strictly shorter* kernel-checked proof in the source domain — and then
+>   **gate 5** (breadth: the same generator transfers into a second, unrelated
+>   sub-domain). A gate-3 pass is the first real result; a gate-5 pass is the
+>   first "reusable" one.
+> - **Fail:** the batch yields **no candidate past gate 3** — every candidate
+>   dies at gate 1 (`not_homomorphism`), gate 2 (`degenerate_collapse`), or
+>   gate 3 (`target_too_weak`); issue #32. Recorded as a negative result; the
+>   track is not declared closed on a single batch.
+> - **Resources:** authored candidate φ terms; the shared metaprogramming
+>   harness (**#29**, itself blocked on **#28** — phase 1 done); the frozen
+>   operational corpus (**#26**, DEC-057). No training run.
+> - **Date by which a threshold fires:** **2026-12-01**. If by then no candidate
+>   has passed gate 3, the axiom-discovery track is declared closed — no further
+>   candidate batches without a maintainer decision to reopen it.
+>
+> The authoritative criterion set is the candidate ledger's gate rules
+> (`axiom-rewrite/`), not this summary; this block is the reader's entry point.
+
 ## At a glance
 
 - **Fully implemented pipeline**: extract → normalize → encode → train → decode → decompile, validated end-to-end (**2,554/2,554 declarations** round-trip cleanly on the 4-module corpus; the current v2 corpus is 4,029).
